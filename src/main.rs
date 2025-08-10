@@ -36,14 +36,26 @@ fn main() -> anyhow::Result<()> {
     log::info!("Initializing UI...");
     ui::lcd_init().unwrap();
 
-    log::info!("Setting up device...");
-    let mut gui = ui::UI::new(None).unwrap();
-
     log_heap();
 
     let gif_buf = include_bytes!("../assets/rust.gif");
     let _ = ui::backgroud(&gif_buf[..]);
     std::thread::sleep(std::time::Duration::from_secs(10));
+
+    // Configures the button
+    log::info!("Configuring button...");
+    let mut button = esp_idf_svc::hal::gpio::PinDriver::input(peripherals.pins.gpio0)?;
+    button.set_pull(esp_idf_svc::hal::gpio::Pull::Up)?;
+    button.set_interrupt_type(esp_idf_svc::hal::gpio::InterruptType::PosEdge)?;
+    log::info!("Button configured.");
+    
+    let b: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+    log::info!("Starting tokio runtime...");
+
+    log::info!("Setting up device...");
+    let mut gui = ui::UI::new(None).unwrap();
 
     log_heap();
 
