@@ -88,11 +88,6 @@ fn init_lcd() -> Result<(), EspError> {
     const DISPLAY_SWAP_XY: bool = false;
     const DISPLAY_INVERT_COLOR: bool = true;
 
-    // const DISPLAY_MIRROR_X: bool = true;
-    // const DISPLAY_MIRROR_Y: bool = true;
-    // const DISPLAY_SWAP_XY: bool = false;
-    // const DISPLAY_INVERT_COLOR: bool = false; // 不反色
-
     ::log::info!("Reset LCD panel");
     unsafe {
         esp!(esp_lcd_panel_reset(panel))?;
@@ -577,7 +572,7 @@ impl UI {
             &self.state,
             self.state_area.center(),
             U8g2TextStyle::new(
-                u8g2_fonts::fonts::u8g2_font_wqy12_t_gb2312a,
+                u8g2_fonts::fonts::u8g2_font_wqy14_t_gb2312a,
                 ColorFormat::CSS_LIGHT_CYAN,
             ),
             Alignment::Center,

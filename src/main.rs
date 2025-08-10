@@ -41,12 +41,21 @@ fn main() -> anyhow::Result<()> {
 
     log_heap();
 
-    log::info!("Connecting to server...");
-    gui.state = "Connecting to server...".to_string();
+    log::info!("Hello echokit, by Rust ESP32-S3");
+    gui.state = "Hello echokit, by Rust ESP32-S3".to_string();
     gui.text.clear();
     gui.display_flush().unwrap();
 
     log_heap();
+
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(10));
+        log::info!("Device is running...");
+
+        gui.state = "Device is running...".to_string();
+        gui.text.clear();
+        gui.display_flush().unwrap();
+    }
 
     Ok(())
 }
