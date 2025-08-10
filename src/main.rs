@@ -22,6 +22,36 @@ struct Setting {
 fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
+
+    log::info!("Starting Echokit device...");
+
+    let peripherals = esp_idf_svc::hal::prelude::Peripherals::take().unwrap();
+    let sysloop = EspSystemEventLoop::take()?;
+
+    log_heap();
+
+    log::info!("Initializing audio...");
+    crate::hal::audio_init();
+
+    log::info!("Initializing UI...");
+    ui::lcd_init().unwrap();
+
+    log::info!("Setting up device...");
+    let mut gui = ui::UI::new(None).unwrap();
+
+    log_heap();
+
+    log::info!("Connecting to server...");
+    gui.state = "Connecting to server...".to_string();
+    gui.text.clear();
+    gui.display_flush().unwrap();
+
+    log_heap();
+
+    Ok(())
+}
+
+fn setup() -> anyhow::Result<()> {
     let peripherals = esp_idf_svc::hal::prelude::Peripherals::take().unwrap();
     let sysloop = EspSystemEventLoop::take()?;
     let _fs = esp_idf_svc::io::vfs::MountedEventfs::mount(20)?;
@@ -81,7 +111,7 @@ fn main() -> anyhow::Result<()> {
     button.set_pull(esp_idf_svc::hal::gpio::Pull::Up)?;
     button.set_interrupt_type(esp_idf_svc::hal::gpio::InterruptType::PosEdge)?;
 
-    let b = tokio::runtime::Builder::new_current_thread()
+    let b: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
 
