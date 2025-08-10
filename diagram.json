@@ -1,0 +1,23 @@
+{
+    "version": 1,
+    "author": "pai2shub <pai2gsg@gmail.com>",
+    "editor": "wokwi",
+    "parts": [
+        {
+            "id": "esp",
+            "type": "board-esp32-s3-devkitc-1"
+        }
+    ],
+    "connections": [
+        [
+            "esp:TX",
+            "$serialMonitor:RX",
+            ""
+        ],
+        [
+            "esp:RX",
+            "$serialMonitor:TX",
+            ""
+        ]
+    ]
+}

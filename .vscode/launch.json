@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Wokwi GDB (echokit)",
+            "type": "cppdbg",
+            "request": "launch",
+            // 要调试的二进制文件
+            "program": "${workspaceFolder}/target/xtensa-esp32s3-espidf/debug/echokit",
+            "cwd": "${workspaceFolder}",
+            "MIMode": "gdb",
+            // gdb 工具路径
+            "miDebuggerPath": "${env:RUSTUP_HOME}/toolchains/esp/xtensa-esp-elf-gdb/bin/xtensa-esp32s3-elf-gdb.exe",
+            // wokwi 运行的地址
+            "miDebuggerServerAddress": "localhost:4399"
+        },
+    ]
+}
