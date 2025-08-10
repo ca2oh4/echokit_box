@@ -41,6 +41,12 @@ fn main() -> anyhow::Result<()> {
 
     log_heap();
 
+    let gif_buf = include_bytes!("../assets/rust.gif");
+    let _ = ui::backgroud(&gif_buf[..]);
+    std::thread::sleep(std::time::Duration::from_secs(10));
+
+    log_heap();
+
     log::info!("Hello echokit, by Rust ESP32-S3");
     gui.state = "Hello echokit, by Rust ESP32-S3".to_string();
     gui.text.clear();
