@@ -83,7 +83,7 @@ fn init_lcd() -> Result<(), EspError> {
     esp!(unsafe { esp_lcd_new_panel_st7789(panel_io, &panel_config, &mut panel) })?;
     unsafe { ESP_LCD_PANEL_HANDLE = panel };
 
-    const DISPLAY_MIRROR_X: bool = false;
+    const DISPLAY_MIRROR_X: bool = true;
     const DISPLAY_MIRROR_Y: bool = false;
     const DISPLAY_SWAP_XY: bool = false;
     const DISPLAY_INVERT_COLOR: bool = true;

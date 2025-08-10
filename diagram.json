@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "author": "FMFigueroa <felixmanuelfigueroa@gmail.com>",
+  "author": "paigack <460852283@qq.com>",
   "editor": "wokwi",
   "parts": [
     {
       "type": "board-esp32-s3-devkitc-1",
       "id": "esp",
       "top": 237.33,
-      "left": -69.28,
+      "left": -78.88,
       "rotate": 270,
       "attrs": {}
     },
@@ -16,12 +16,12 @@
   "connections": [
     [ "esp:TX", "$serialMonitor:RX", "", [] ],
     [ "esp:RX", "$serialMonitor:TX", "", [] ],
-    [ "lcd1:SCK", "esp:21", "orange", [ "v23.2", "h2.59", "v86.4" ] ],
-    [ "lcd1:MOSI", "esp:47", "blue", [ "v13.6", "h2.59", "v96" ] ],
-    [ "esp:GND.1", "lcd1:GND", "black", [ "v38.45", "h86.4", "v-163.2", "h-172.8", "v-100" ] ],
-    [ "lcd1:VCC", "esp:5V", "red", [ "v109.6", "h175.4", "v144", "h-86.4" ] ],
-    [ "lcd1:CS", "lcd1:GND", "black", [ "h21.64", "v9.6" ] ],
-    [ "esp:4", "lcd1:D/C", "green", [ "v48.05", "h268.8", "v-182.4", "h-156.2" ] ]
+    [ "lcd1:SCK", "esp:21", "orange", [ "v23.2", "h-0.01", "v111.2" ] ],
+    [ "lcd1:MOSI", "esp:47", "blue", [ "v13.6", "h-0.01", "v120.8" ] ],
+    [ "esp:GND.1", "lcd1:GND", "black", [ "v28.85", "h57.6", "v-163.2", "h-144" ] ],
+    [ "lcd1:VCC", "esp:5V", "red", [ "v96", "h144", "v163.2", "h-57.6" ] ],
+    [ "lcd1:CS", "esp:41", "gold", [ "v105.6", "h-67.2" ] ],
+    [ "esp:40", "lcd1:D/C", "green", [ "v-19.2", "h76.8" ] ]
   ],
   "serialMonitor": { "display": "terminal" },
   "dependencies": {}
