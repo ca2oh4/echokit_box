@@ -6,6 +6,7 @@ mod app;
 mod audio;
 mod bt;
 mod hal;
+// mod mic_led;
 mod network;
 mod protocol;
 mod slint_esp;
@@ -33,6 +34,12 @@ fn main() -> anyhow::Result<()> {
     let sysloop = EspSystemEventLoop::take()?;
 
     log_heap();
+
+    // mic_led::run(
+    //     peripherals.adc1,
+    //     peripherals.pins.gpio36.into(),
+    //     peripherals.pins.gpio13.into(),
+    // );
 
     log::info!("Initializing audio...");
     crate::hal::audio_init();
