@@ -35,6 +35,7 @@ impl Server<'_> {
         let mut conf = EspWebSocketClientConfig::default();
         conf.crt_bundle_attach = Some(esp_idf_svc::sys::esp_crt_bundle_attach);
         conf.use_global_ca_store = true;
+        conf.buffer_size = 4096;
         let (tx, rx) = mpsc::channel::<ExampleEvent>();
         let (tx2, rx2) = mpsc::channel::<ServerEvent>();
 
@@ -108,7 +109,11 @@ impl Server<'_> {
                     }
                 }
                 WebSocketEventType::Binary(binary) => {
-                    log::info!("Websocket recv, binary: {:?}", binary.len());
+                    log::info!(
+                        "Websocket recv, binary size: {:?}, data: {:?}",
+                        binary.len(),
+                        binary
+                    );
                     let evt = rmp_serde::from_slice::<ServerEvent>(&binary)
                         .map_err(|e| anyhow::anyhow!("Failed to deserialize binary data: {}", e))
                         .unwrap();
