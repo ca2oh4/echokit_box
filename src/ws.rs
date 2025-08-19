@@ -15,12 +15,19 @@ pub struct Server {
     ws: tokio_websockets::WebSocketStream<tokio_websockets::MaybeTlsStream<tokio::net::TcpStream>>,
 }
 
+
 impl Server {
     pub async fn new(uri: String) -> anyhow::Result<Self> {
-        let (ws, _resp) = tokio_websockets::ClientBuilder::new()
+        let (ws, resp) = tokio_websockets::ClientBuilder::new()
             .uri(&uri)?
             .connect()
             .await?;
+
+        log::info!(
+            "ws resp status: {:?}, headers: {:?} ",
+            resp.status(),
+            resp.headers()
+        );
 
         let timeout = std::time::Duration::from_secs(30);
 

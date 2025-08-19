@@ -1,9 +1,5 @@
-partition_table = "partitions.csv"
+format = "EspIdf"
 
-[connection]
-
-[[usb_device]]
-vid = "1a86"
-pid = "55d3"
+[idf_format_args]
 
 [flash]

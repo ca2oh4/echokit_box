@@ -1,3 +1,7 @@
 {
+    // 防止自动建立target文件夹
+    "rust-analyzer.checkOnSave": false,
+    "rust-analyzer.cargo.buildScripts.enable": false,
+    "rust-analyzer.procMacro.enable": false,
     "cmake.sourceDirectory": "E:/eb/components/hal_driver"
 }
