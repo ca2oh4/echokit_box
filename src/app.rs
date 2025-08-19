@@ -30,7 +30,7 @@ impl Event {
     pub const K2: &'static str = "k2";
 }
 
-async fn select_evt(evt_rx: &mut mpsc::Receiver<Event>, server: &mut Server) -> Option<Event> {
+async fn select_evt(evt_rx: &mut mpsc::Receiver<Event>, server: &mut Server<'_>) -> Option<Event> {
     tokio::select! {
         Some(evt) = evt_rx.recv() => {
             match &evt {
@@ -113,7 +113,7 @@ impl DownloadMetrics {
 // TODO: 按键打断
 // TODO: 超时不监听
 pub async fn main_work<'d>(
-    mut server: Server,
+    mut server: Server<'_>,
     player_tx: audio::PlayerTx,
     mut evt_rx: mpsc::Receiver<Event>,
     backgroud_buffer: Option<&'d [u8]>,
@@ -193,8 +193,7 @@ pub async fn main_work<'d>(
                     // 0.5秒提交一次
                     if audio_buffer.len() >= 8192 {
                         server
-                            .send(Message::binary(bytes::Bytes::from(audio_buffer)))
-                            .await?;
+                            .send(Message::binary(bytes::Bytes::from(audio_buffer)))?;
                         audio_buffer = Vec::with_capacity(8192);
                     }
                 } else {
@@ -205,14 +204,13 @@ pub async fn main_work<'d>(
                 if (state == State::Listening || state == State::Recording) && submit_audio > 1.0 {
                     if !audio_buffer.is_empty() {
                         server
-                            .send(Message::binary(bytes::Bytes::from(audio_buffer)))
-                            .await?;
+                            .send(Message::binary(bytes::Bytes::from(audio_buffer)))?;
                         audio_buffer = Vec::with_capacity(8192);
                     }
                     if state == State::Listening {
-                        server.send(Message::text("End:Normal")).await?;
+                        server.send(Message::text("End:Normal"))?;
                     } else {
-                        server.send(Message::text("End:Recording")).await?;
+                        server.send(Message::text("End:Recording"))?;
                     }
                     need_compute = metrics.is_timeout();
                 }
