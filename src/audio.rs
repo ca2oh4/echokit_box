@@ -4,6 +4,7 @@ use esp_idf_svc::hal::gpio::AnyIOPin;
 use esp_idf_svc::hal::i2s::{config, I2sDriver, I2S0, I2S1};
 
 use esp_idf_svc::sys::esp_sr;
+use tokio::time;
 
 const SAMPLE_RATE: u32 = 16000;
 const PORT_TICK_PERIOD_MS: u32 = 1000 / esp_idf_svc::sys::configTICK_RATE_HZ;
@@ -124,7 +125,7 @@ impl AFE {
     }
 }
 
-pub static WAKE_WAV: &[u8] = include_bytes!("../assets/hello_beep.wav");
+pub static WAKE_WAV: &[u8] = include_bytes!("../assets/hello.wav");
 
 pub enum AudioData {
     Hello(tokio::sync::oneshot::Sender<()>),
@@ -140,7 +141,7 @@ pub type PlayerTx = tokio::sync::mpsc::UnboundedSender<AudioData>;
 pub type PlayerRx = tokio::sync::mpsc::UnboundedReceiver<AudioData>;
 pub type MicTx = tokio::sync::mpsc::Sender<crate::app::Event>;
 
-pub async fn i2s_task_(
+pub fn i2s_task_(
     i2s: I2S0,
     ws: AnyIOPin,
     sck: AnyIOPin,
@@ -154,7 +155,7 @@ pub async fn i2s_task_(
     let afe_handle = Arc::new(AFE::new());
     let afe_handle_ = afe_handle.clone();
     let afe_r = std::thread::spawn(|| afe_worker(afe_handle_, tx));
-    let r = i2s_player_(i2s, ws, sck, din, i2s1, bclk, lrclk, dout, afe_handle, rx).await;
+    let r = i2s_player_(i2s, ws, sck, din, i2s1, bclk, lrclk, dout, afe_handle, rx);
     if let Err(e) = r {
         log::error!("Error: {}", e);
     } else {
@@ -168,7 +169,7 @@ pub async fn i2s_task_(
     }
 }
 
-async fn i2s_player_(
+fn i2s_player_(
     i2s: I2S0,
     ws: AnyIOPin,
     sck: AnyIOPin,
@@ -204,75 +205,79 @@ async fn i2s_player_(
 
     let mut hello_audio = WAKE_WAV.to_vec();
 
-    tx_driver.write_all(&hello_audio, 100 / PORT_TICK_PERIOD_MS)?;
-    log::info!("Playing hello audio, waiting for response...");
-
     loop {
-        let data = if speaking {
-            rx.recv().await
-        } else {
-            tokio::select! {
-                Some(data) = rx.recv() =>{
-                    Some(data)
-                }
-                _ = async {} => {
-                    for _ in 0..10{
-                        let n = rx_driver.read(&mut buf, 100 / PORT_TICK_PERIOD_MS)?;
-                        afe_handle.feed(&buf[..n]);
-                    }
-                    None
-                }
-            }
-        };
-        if let Some(data) = data {
-            match data {
-                AudioData::Hello(tx) => {
-                    log::info!("Received hello");
-                    tx_driver
-                        .write_all_async(&hello_audio)
-                        .await
-                        .map_err(|e| anyhow::anyhow!("Error play hello: {:?}", e))?;
-                    let _ = tx.send(());
-                    speaking = false;
-                }
-                AudioData::SetHelloStart => {
-                    log::info!("Received set hello start");
-                    hello_audio.clear();
-                }
-                AudioData::SetHelloChunk(data) => {
-                    log::info!("Received set hello chunk");
-                    hello_audio.extend(data);
-                }
-                AudioData::SetHelloEnd => {
-                    log::info!("Received set hello end");
-                    tx_driver
-                        .write_all_async(&hello_audio)
-                        .await
-                        .map_err(|e| anyhow::anyhow!("Error play set hello: {:?}", e))?;
-                }
-                AudioData::Start => {
-                    log::info!("Received start");
-                    speaking = true;
-                }
-                AudioData::Chunk(data) => {
-                    log::info!("Received audio chunk");
-                    if speaking {
-                        tx_driver
-                            .write_all_async(&data)
-                            .await
-                            .map_err(|e| anyhow::anyhow!("Error play audio data: {:?}", e))?;
-                    }
-                }
-                AudioData::End(tx) => {
-                    log::info!("Received end");
-                    let _ = tx.send(());
-                    speaking = false;
-                    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-                }
-            }
-        } else {
-            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        }
+        log::info!(
+            "Playing hello audio, send data size: {:?}",
+            hello_audio.len()
+        );
+        tx_driver.write_all(&hello_audio, 100 / PORT_TICK_PERIOD_MS)?;
+        log::info!("Playing hello audio, waiting for response...");
+
+        // let data = if speaking {
+        //     rx.recv().await
+        // } else {
+        //     tokio::select! {
+        //         Some(data) = rx.recv() =>{
+        //             Some(data)
+        //         }
+        //         _ = async {} => {
+        //             for _ in 0..10{
+        //                 let n = rx_driver.read(&mut buf, 100 / PORT_TICK_PERIOD_MS)?;
+        //                 afe_handle.feed(&buf[..n]);
+        //             }
+        //             None
+        //         }
+        //     }
+        // };
+        // if let Some(data) = data {
+        //     match data {
+        //         AudioData::Hello(tx) => {
+        //             log::info!("Received hello");
+        //             tx_driver
+        //                 .write_all_async(&hello_audio)
+        //                 .await
+        //                 .map_err(|e| anyhow::anyhow!("Error play hello: {:?}", e))?;
+        //             let _ = tx.send(());
+        //             speaking = false;
+        //         }
+        //         AudioData::SetHelloStart => {
+        //             log::info!("Received set hello start");
+        //             hello_audio.clear();
+        //         }
+        //         AudioData::SetHelloChunk(data) => {
+        //             log::info!("Received set hello chunk");
+        //             hello_audio.extend(data);
+        //         }
+        //         AudioData::SetHelloEnd => {
+        //             log::info!("Received set hello end");
+        //             tx_driver
+        //                 .write_all_async(&hello_audio)
+        //                 .await
+        //                 .map_err(|e| anyhow::anyhow!("Error play set hello: {:?}", e))?;
+        //         }
+        //         AudioData::Start => {
+        //             log::info!("Received start");
+        //             speaking = true;
+        //         }
+        //         AudioData::Chunk(data) => {
+        //             log::info!("Received audio chunk");
+        //             if speaking {
+        //                 tx_driver
+        //                     .write_all_async(&data)
+        //                     .await
+        //                     .map_err(|e| anyhow::anyhow!("Error play audio data: {:?}", e))?;
+        //             }
+        //         }
+        //         AudioData::End(tx) => {
+        //             log::info!("Received end");
+        //             let _ = tx.send(());
+        //             speaking = false;
+        //             tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        //         }
+        //     }
+        // } else {
+        //     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        // }
     }
 
     // Ok(())

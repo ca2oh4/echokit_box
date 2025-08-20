@@ -195,26 +195,27 @@ fn main() -> anyhow::Result<()> {
     };
 
     #[cfg(feature = "boards")]
-    let i2s_task = {
-        let sck = peripherals.pins.gpio5;
-        let din = peripherals.pins.gpio6;
-        let dout = peripherals.pins.gpio7;
-        let ws = peripherals.pins.gpio4;
-        let bclk = peripherals.pins.gpio15;
-        let lrclk = peripherals.pins.gpio16;
-
-        audio::i2s_task_(
-            peripherals.i2s0,
-            ws.into(),
-            sck.into(),
-            din.into(),
-            peripherals.i2s1,
-            bclk.into(),
-            lrclk.into(),
-            dout.into(),
-            (evt_tx.clone(), rx1),
-        )
-    };
+    // let i2s_task = {
+    let sck = peripherals.pins.gpio5;
+    let din = peripherals.pins.gpio6;
+    let dout = peripherals.pins.gpio7;
+    let ws = peripherals.pins.gpio4;
+    let bclk = peripherals.pins.gpio15;
+    let lrclk = peripherals.pins.gpio16;
+    log::info!("i2s_task");
+    audio::i2s_task_(
+        peripherals.i2s0,
+        ws.into(),
+        sck.into(),
+        din.into(),
+        peripherals.i2s1,
+        bclk.into(),
+        lrclk.into(),
+        dout.into(),
+        (evt_tx.clone(), rx1),
+    );
+    // };
+    // b.spawn(i2s_task);
 
     gui.state = "Connecting to server...".to_string();
     gui.text.clear();
@@ -274,7 +275,6 @@ fn main() -> anyhow::Result<()> {
         }
     });
 
-    b.spawn(i2s_task);
     b.block_on(async move {
         let r = ws_task.await;
         if let Err(e) = r {
