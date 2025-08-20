@@ -40,9 +40,11 @@ impl Server<'_> {
         let (tx2, rx2) = mpsc::channel::<ServerEvent>();
 
         let timeout = std::time::Duration::from_secs(10);
+        let mut buffer = Vec::new();
         let client = EspWebSocketClient::new(uri.as_ref(), &conf, timeout, move |event| {
-            Self::ws_handle_event(&tx, &tx2, event)
+            Self::ws_handle_event(&tx, &tx2, event, &mut buffer)
         })?;
+
         log::info!("ws recv: {:?}", rx.recv());
         log::info!("ws is_connected: {:?}", client.is_connected());
 
@@ -82,6 +84,7 @@ impl Server<'_> {
         tx: &mpsc::Sender<ExampleEvent>,
         tx2: &mpsc::Sender<ServerEvent>,
         event: &Result<WebSocketEvent, EspIOError>,
+        buffer: &mut Vec<u8>, // 传入缓存
     ) {
         if let Ok(event) = event {
             match event.event_type {
@@ -109,15 +112,22 @@ impl Server<'_> {
                     }
                 }
                 WebSocketEventType::Binary(binary) => {
-                    log::info!(
-                        "Websocket recv, binary size: {:?}, data: {:?}",
-                        binary.len(),
-                        binary
-                    );
-                    let evt = rmp_serde::from_slice::<ServerEvent>(&binary)
-                        .map_err(|e| anyhow::anyhow!("Failed to deserialize binary data: {}", e))
-                        .unwrap();
-                    tx2.send(evt).unwrap();
+                    log::info!("Websocket recv, binary size: {:?}", binary.len());
+
+                    buffer.extend_from_slice(&binary);
+
+                    // 如果解析失败，说明数据还不够，先缓存起来，等合并数据后再解析
+                    match rmp_serde::from_slice::<ServerEvent>(&buffer) {
+                        Ok(evt) => {
+                            log::info!("成功解析 ServerEvent size: {:?}", buffer.len());
+                            tx2.send(evt).unwrap();
+                            buffer.clear(); // 成功就清空缓存
+                        }
+                        Err(err) => {
+                            // 数据不够，继续等下一个 frame
+                            log::warn!("数据不完整，等待更多数据: {}", err);
+                        }
+                    }
                 }
                 WebSocketEventType::Ping => {
                     log::info!("Websocket ping");
