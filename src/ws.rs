@@ -5,12 +5,13 @@ fn print_stack_high() {
     log::info!("Stack high: {}", stack_high);
 }
 
+use std::fmt::Debug;
 use crate::{app::Event, protocol::ServerEvent};
+use esp_idf_svc::sntp;
 use futures_util::{SinkExt, StreamExt, TryFutureExt};
 use std::sync::Arc;
 use tokio::net::TcpStream;
 use tokio_websockets::{Connector, Error, Message};
-// use uri::Uri;
 
 pub struct Server {
     timeout: std::time::Duration,
@@ -20,6 +21,7 @@ pub struct Server {
 impl Server {
     pub async fn new(uri: String) -> anyhow::Result<Self> {
         log::info!("ws connecting to {}", uri);
+        sync_time();
 
         log::info!("ws connecting step0");
         let (scheme, rest) = uri.split_once("://").unwrap();
@@ -90,4 +92,25 @@ impl Server {
             Err(anyhow::anyhow!("Invalid message type"))
         }
     }
+}
+
+fn sync_time() {
+    log::info!("Sync time");
+    show_now();
+    let lsntp = sntp::EspSntp::new_default().unwrap();
+    loop {
+        let status = lsntp.get_sync_status();
+        log::info!("sntp sync status {:?}", status);
+        if status == sntp::SyncStatus::Completed{
+            show_now();
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+    log::info!("NTP time synchronized!");
+}
+
+fn show_now(){
+    let now = std::time::SystemTime::now();
+    log::info!("now time: {:?}", now);
 }
