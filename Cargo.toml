@@ -67,10 +67,14 @@ tokio-websockets = { version = "0.8", features = [
     "client",
     "fastrand",
     "sha1_smol",
+    "rustls-webpki-roots",
+    #    "ring",
 ] }
+
 bytes = "1.10.0"
 
 qrcode = { version = "0.14.1", default-features = false, features = [] }
+rustls-rustcrypto = "0.0.2-alpha"
 
 [build-dependencies]
 embuild = "0.33"

@@ -7,20 +7,49 @@ fn print_stack_high() {
 
 use crate::{app::Event, protocol::ServerEvent};
 use futures_util::{SinkExt, StreamExt, TryFutureExt};
-use tokio_websockets::Message;
+use std::sync::Arc;
+use tokio::net::TcpStream;
+use tokio_websockets::{Connector, Error, Message};
+// use uri::Uri;
 
 pub struct Server {
-    pub uri: String,
     timeout: std::time::Duration,
     ws: tokio_websockets::WebSocketStream<tokio_websockets::MaybeTlsStream<tokio::net::TcpStream>>,
 }
 
-
 impl Server {
     pub async fn new(uri: String) -> anyhow::Result<Self> {
+        log::info!("ws connecting to {}", uri);
+
+        log::info!("ws connecting step0");
+        let (scheme, rest) = uri.split_once("://").unwrap();
+        let default_port = match scheme {
+            "wss" => 443,
+            "ws" => 80,
+            _ => 80,
+        };
+
+        // 提取 host[:port] 部分
+        let host_port = rest.split('/').next().unwrap();
+        let (host, port) = if let Some((h, p)) = host_port.split_once(':') {
+            (h, p.parse::<u16>().unwrap_or(default_port))
+        } else {
+            (host_port, default_port)
+        };
+        log::info!("ws connecting to {}:{}", host, port);
+        log::info!("ws connecting step3");
+        let tcp_stream = TcpStream::connect(format!("{host}:{port}")).await?;
+        log::info!("ws connecting step4");
+        let provider = Arc::new(rustls_rustcrypto::provider());
+        log::info!("ws connecting step5");
+        let connector = Connector::new_rustls_with_crypto_provider(provider)?;
+        log::info!("ws connecting step6");
+        let tls_stream = connector.wrap(host, tcp_stream).await?;
+        log::info!("ws connecting step7");
+
         let (ws, resp) = tokio_websockets::ClientBuilder::new()
             .uri(&uri)?
-            .connect()
+            .connect_on(tls_stream)
             .await?;
 
         log::info!(
@@ -31,7 +60,7 @@ impl Server {
 
         let timeout = std::time::Duration::from_secs(30);
 
-        Ok(Self { uri, timeout, ws })
+        Ok(Self { timeout, ws })
     }
 
     pub fn set_timeout(&mut self, timeout: std::time::Duration) {

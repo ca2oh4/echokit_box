@@ -124,7 +124,7 @@ impl AFE {
     }
 }
 
-pub static WAKE_WAV: &[u8] = include_bytes!("../assets/hello_beep.wav");
+pub static WAKE_WAV: &[u8] = include_bytes!("../assets/hello.wav");
 
 pub enum AudioData {
     Hello(tokio::sync::oneshot::Sender<()>),

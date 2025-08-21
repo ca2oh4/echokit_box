@@ -158,8 +158,10 @@ fn main() -> anyhow::Result<()> {
         )
     };
     if _wifi.is_err() {
+        let err = _wifi.err().unwrap();
+        log::error!("Wifi error: {:?}", err);
         gui.state = "Failed to connect to wifi".to_string();
-        gui.text = "Press K0 to restart".to_string();
+        gui.text = format!("Press K0 to restart, err: {:?}", err);
         gui.display_flush().unwrap();
         b.block_on(button.wait_for_falling_edge()).unwrap();
         unsafe { esp_idf_svc::sys::esp_restart() }
@@ -228,8 +230,10 @@ fn main() -> anyhow::Result<()> {
     };
     let server = b.block_on(ws::Server::new(server_url.clone()));
     if server.is_err() {
+        let err = server.err().unwrap();
+        log::error!("Server error: {:?}", err);
         gui.state = "Failed to connect to server".to_string();
-        gui.text = format!("Please check your server URL: {server_url}");
+        gui.text = format!("Please check your server URL: {server_url}, err: {:?}", err);
         gui.display_flush().unwrap();
         b.block_on(button.wait_for_falling_edge()).unwrap();
         unsafe { esp_idf_svc::sys::esp_restart() }
