@@ -171,7 +171,10 @@ fn main() -> anyhow::Result<()> {
     let wifi = _wifi.unwrap();
     log_heap();
 
-    sntp::sync_time();
+    let now_time = sntp::sync_time();
+    gui.state = "SNTP sync".to_string();
+    gui.text = format!("{}", now_time);
+
     log_heap();
 
     let mac = wifi.ap_netif().get_mac().unwrap();
