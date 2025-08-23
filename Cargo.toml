@@ -68,7 +68,6 @@ tokio-websockets = { version = "0.8", features = [
     "fastrand",
     "sha1_smol",
     "rustls-webpki-roots",
-    #    "ring",
 ] }
 
 bytes = "1.10.0"
