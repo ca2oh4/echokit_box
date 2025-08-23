@@ -1,21 +1,9 @@
 use chrono::{DateTime, FixedOffset, TimeZone, Utc};
 use esp_idf_svc::sntp::{EspSntp, SyncStatus::Completed};
-use std::ffi::c_char;
 use std::{thread::sleep, time::Duration};
 
 pub fn sync_time() -> String {
     log::info!("SNTP sync time");
-
-    let tz_key = "TZ";
-    let tz_val = "CST-8";
-    unsafe {
-        esp_idf_svc::sys::setenv(
-            tz_key.as_ptr() as *const c_char,
-            tz_val.as_ptr() as *const c_char,
-            1,
-        );
-        esp_idf_svc::sys::tzset();
-    }
     show_now();
     let ntp_client = EspSntp::new_default().unwrap();
     loop {

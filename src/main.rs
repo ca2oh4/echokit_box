@@ -174,6 +174,7 @@ fn main() -> anyhow::Result<()> {
     let now_time = sntp::sync_time();
     gui.state = "SNTP sync".to_string();
     gui.text = format!("{}", now_time);
+    gui.display_flush().unwrap();
 
     log_heap();
 
