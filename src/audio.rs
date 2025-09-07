@@ -56,34 +56,12 @@ unsafe fn afe_init() -> (
     let model_data = ((*multinet).create.unwrap())(mn_name, 6000 as c_int);
     log::info!("model_data: {:?}", model_data);
 
+    esp_sr::esp_mn_commands_update_from_sdkconfig(multinet, model_data);
     log::info!("print_active_speech_commands");
     ((*multinet).print_active_speech_commands.unwrap())(model_data);
 
     (afe_handle, afe_data)
 }
-
-// unsafe fn list_models(models: *mut esp_sr::srmodel_list_t) {
-//     if models.is_null() {
-//         return;
-//     }
-
-//     // let partition = *(*models).partition;
-//     // log::info!(
-//     //     "Partition: name={}, type=0x{:X}, subtype=0x{:X}, offset=0x{:X}, size={} bytes",
-//     //     CStr::from_ptr(partition.label.as_ptr()).to_str().unwrap(),
-//     //     partition.type_ as u8,
-//     //     partition.subtype as u8,
-//     //     partition.address,
-//     //     partition.size
-//     // );
-//     let model_data = *(*(*models).model_data);
-//     log::info!(
-//         "Model: name={}, num={}, data={}",
-//         CStr::from_ptr(*model_data.files).to_str().unwrap(),
-//         model_data.num,
-//         CStr::from_ptr(*model_data.data).to_str().unwrap(),
-//     );
-// }
 
 struct AFE {
     handle: *mut esp_sr::esp_afe_sr_iface_t,
