@@ -17,12 +17,11 @@ unsafe fn afe_init() -> (
     *mut esp_sr::model_iface_data_t,
 ) {
     let models = esp_sr::esp_srmodel_init("model\0".as_ptr() as *const _);
-    // list_models(models);
     let afe_config = esp_sr::afe_config_init(
         "M\0".as_ptr() as _,
         models,
-        esp_sr::afe_type_t_AFE_TYPE_VC,
-        esp_sr::afe_mode_t_AFE_MODE_HIGH_PERF,
+        esp_sr::afe_type_t_AFE_TYPE_SR,
+        esp_sr::afe_mode_t_AFE_MODE_LOW_COST,
     );
     let afe_config = afe_config.as_mut().unwrap();
     afe_config.pcm_config.total_ch_num = 1;
@@ -33,6 +32,8 @@ unsafe fn afe_init() -> (
     afe_config.vad_min_noise_ms = 500;
     afe_config.vad_mode = esp_sr::vad_mode_t_VAD_MODE_1;
     afe_config.agc_init = true;
+    // afe_config.wakenet_init = true;
+    // afe_config.wakenet_mode = esp_sr::det_mode_t_DET_MODE_90;
 
     log::info!("{afe_config:?}");
 
@@ -129,10 +130,11 @@ impl AFE {
                 .as_mut()
                 .unwrap();
 
-            log::info!("result: {:?}", result);
             if result.ret_value != 0 {
                 return Err(result.ret_value);
             }
+
+            // log::info!("result: {:?}", result);
             let mut wakeup_flag = false;
             if result.raw_data_channels == 1
                 && result.wakeup_state == esp_sr::wakenet_state_t_WAKENET_DETECTED
@@ -143,7 +145,7 @@ impl AFE {
             {
                 wakeup_flag = true;
             }
-            log::info!("wakeup_flag: {}", wakeup_flag);
+            // log::info!("wakeup_flag: {}", wakeup_flag);
             if wakeup_flag {
                 let mn_state = ((*multinet).detect.unwrap())(multinet_data, result.data);
                 log::info!("mn_state: {:?}", mn_state);
