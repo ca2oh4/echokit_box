@@ -5,6 +5,9 @@ use esp_idf_svc::hal::i2s::{config, I2sDriver, I2S0, I2S1};
 
 use esp_idf_svc::sys::esp_sr;
 
+use core::ffi::c_char;
+use core::ffi::c_int;
+
 const SAMPLE_RATE: u32 = 16000;
 const PORT_TICK_PERIOD_MS: u32 = 1000 / esp_idf_svc::sys::configTICK_RATE_HZ;
 
@@ -41,6 +44,21 @@ unsafe fn afe_init() -> (
     log::info!("audio chunksize: {}", audio_chunksize);
 
     esp_sr::afe_config_free(afe_config);
+
+    let mn_name = esp_sr::esp_srmodel_filter(
+        models,
+        esp_sr::ESP_MN_PREFIX.as_ptr() as *const _,
+        esp_sr::ESP_MN_CHINESE.as_ptr() as *const _,
+    );
+    log::info!("mn_name: {:?}", mn_name);
+    let multinet = esp_sr::esp_mn_handle_from_name(mn_name);
+    log::info!("multinet: {:?}", multinet);
+    let model_data = ((*multinet).create.unwrap())(mn_name, 6000 as c_int);
+    log::info!("model_data: {:?}", model_data);
+
+    log::info!("print_active_speech_commands");
+    ((*multinet).print_active_speech_commands.unwrap())(model_data);
+
     (afe_handle, afe_data)
 }
 
@@ -95,6 +113,7 @@ impl AFE {
     fn fetch(&self) -> Result<AFEResult, i32> {
         let afe_handle = self.handle;
         let afe_data = self.data;
+
         unsafe {
             let result = (afe_handle.as_ref().unwrap().fetch.unwrap())(afe_data)
                 .as_mut()
@@ -103,6 +122,7 @@ impl AFE {
             if result.ret_value != 0 {
                 return Err(result.ret_value);
             }
+            // todo 判断是什么命令
 
             let data_size = result.data_size;
             let vad_state = result.vad_state;
