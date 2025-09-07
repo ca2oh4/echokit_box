@@ -13,6 +13,8 @@ const PORT_TICK_PERIOD_MS: u32 = 1000 / esp_idf_svc::sys::configTICK_RATE_HZ;
 unsafe fn afe_init() -> (
     *mut esp_sr::esp_afe_sr_iface_t,
     *mut esp_sr::esp_afe_sr_data_t,
+    *mut esp_sr::esp_mn_iface_t,
+    *mut esp_sr::model_iface_data_t,
 ) {
     let models = esp_sr::esp_srmodel_init("model\0".as_ptr() as *const _);
     // list_models(models);
@@ -53,19 +55,22 @@ unsafe fn afe_init() -> (
     log::info!("mn_name: {:?}", mn_name);
     let multinet = esp_sr::esp_mn_handle_from_name(mn_name);
     log::info!("multinet: {:?}", multinet);
-    let model_data = ((*multinet).create.unwrap())(mn_name, 6000 as c_int);
-    log::info!("model_data: {:?}", model_data);
+    let multinet_data = ((*multinet).create.unwrap())(mn_name, 6000 as c_int);
+    log::info!("model_data: {:?}", multinet_data);
 
-    esp_sr::esp_mn_commands_update_from_sdkconfig(multinet, model_data);
+    esp_sr::esp_mn_commands_update_from_sdkconfig(multinet, multinet_data);
     log::info!("print_active_speech_commands");
-    ((*multinet).print_active_speech_commands.unwrap())(model_data);
+    ((*multinet).print_active_speech_commands.unwrap())(multinet_data);
 
-    (afe_handle, afe_data)
+    (afe_handle, afe_data, multinet, multinet_data)
 }
 
 struct AFE {
     handle: *mut esp_sr::esp_afe_sr_iface_t,
     data: *mut esp_sr::esp_afe_sr_data_t,
+
+    multinet: *mut esp_sr::esp_mn_iface_t,
+    multinet_data: *mut esp_sr::model_iface_data_t,
     #[allow(unused)]
     feed_chunksize: usize,
 }
@@ -81,13 +86,15 @@ struct AFEResult {
 impl AFE {
     fn new() -> Self {
         unsafe {
-            let (handle, data) = afe_init();
+            let (handle, data, multinet, multinet_data) = afe_init();
             let feed_chunksize =
                 (handle.as_mut().unwrap().get_feed_chunksize.unwrap())(data) as usize;
 
             AFE {
                 handle,
                 data,
+                multinet,
+                multinet_data,
                 feed_chunksize,
             }
         }
@@ -114,16 +121,44 @@ impl AFE {
     fn fetch(&self) -> Result<AFEResult, i32> {
         let afe_handle = self.handle;
         let afe_data = self.data;
+        let multinet = self.multinet;
+        let multinet_data = self.multinet_data;
 
         unsafe {
             let result = (afe_handle.as_ref().unwrap().fetch.unwrap())(afe_data)
                 .as_mut()
                 .unwrap();
 
+            log::info!("result: {:?}", result);
             if result.ret_value != 0 {
                 return Err(result.ret_value);
             }
-            // todo 判断是什么命令
+            let mut wakeup_flag = false;
+            if result.raw_data_channels == 1
+                && result.wakeup_state == esp_sr::wakenet_state_t_WAKENET_DETECTED
+            {
+                wakeup_flag = true;
+            } else if result.raw_data_channels > 1
+                && result.wakeup_state == esp_sr::wakenet_state_t_WAKENET_CHANNEL_VERIFIED
+            {
+                wakeup_flag = true;
+            }
+            log::info!("wakeup_flag: {}", wakeup_flag);
+            if wakeup_flag {
+                let mn_state = ((*multinet).detect.unwrap())(multinet_data, result.data);
+                log::info!("mn_state: {:?}", mn_state);
+                if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_DETECTED {
+                    let result = ((*multinet).get_results.unwrap())(multinet_data);
+                    log::info!("result: {:?}", result);
+                    for i in 0..(*result).num {
+                        log::info!(
+                            "TOP {}, command_id: {}",
+                            i,
+                            (*result).command_id[i as usize]
+                        );
+                    }
+                }
+            }
 
             let data_size = result.data_size;
             let vad_state = result.vad_state;
