@@ -5,8 +5,7 @@ use esp_idf_svc::hal::i2s::{config, I2sDriver, I2S0, I2S1};
 
 use esp_idf_svc::sys::esp_sr;
 
-use core::ffi::c_char;
-use core::ffi::c_int;
+use core::ffi::{c_char, c_int, CStr};
 
 const SAMPLE_RATE: u32 = 16000;
 const PORT_TICK_PERIOD_MS: u32 = 1000 / esp_idf_svc::sys::configTICK_RATE_HZ;
@@ -16,6 +15,7 @@ unsafe fn afe_init() -> (
     *mut esp_sr::esp_afe_sr_data_t,
 ) {
     let models = esp_sr::esp_srmodel_init("model\0".as_ptr() as *const _);
+    // list_models(models);
     let afe_config = esp_sr::afe_config_init(
         "M\0".as_ptr() as _,
         models,
@@ -61,6 +61,29 @@ unsafe fn afe_init() -> (
 
     (afe_handle, afe_data)
 }
+
+// unsafe fn list_models(models: *mut esp_sr::srmodel_list_t) {
+//     if models.is_null() {
+//         return;
+//     }
+
+//     // let partition = *(*models).partition;
+//     // log::info!(
+//     //     "Partition: name={}, type=0x{:X}, subtype=0x{:X}, offset=0x{:X}, size={} bytes",
+//     //     CStr::from_ptr(partition.label.as_ptr()).to_str().unwrap(),
+//     //     partition.type_ as u8,
+//     //     partition.subtype as u8,
+//     //     partition.address,
+//     //     partition.size
+//     // );
+//     let model_data = *(*(*models).model_data);
+//     log::info!(
+//         "Model: name={}, num={}, data={}",
+//         CStr::from_ptr(*model_data.files).to_str().unwrap(),
+//         model_data.num,
+//         CStr::from_ptr(*model_data.data).to_str().unwrap(),
+//     );
+// }
 
 struct AFE {
     handle: *mut esp_sr::esp_afe_sr_iface_t,
