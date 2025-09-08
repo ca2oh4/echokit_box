@@ -32,8 +32,8 @@ unsafe fn afe_init() -> (
     afe_config.vad_min_noise_ms = 500;
     afe_config.vad_mode = esp_sr::vad_mode_t_VAD_MODE_1;
     afe_config.agc_init = true;
-    // afe_config.wakenet_init = true;
-    // afe_config.wakenet_mode = esp_sr::det_mode_t_DET_MODE_90;
+    afe_config.wakenet_init = true;
+    afe_config.wakenet_mode = esp_sr::det_mode_t_DET_MODE_90;
 
     log::info!("{afe_config:?}");
 
@@ -70,6 +70,7 @@ struct AFE {
     handle: *mut esp_sr::esp_afe_sr_iface_t,
     data: *mut esp_sr::esp_afe_sr_data_t,
 
+    wakeup_flag: *mut bool,
     multinet: *mut esp_sr::esp_mn_iface_t,
     multinet_data: *mut esp_sr::model_iface_data_t,
     #[allow(unused)]
@@ -89,15 +90,23 @@ impl AFE {
     fn new() -> Self {
         unsafe {
             let (handle, data, multinet, multinet_data) = afe_init();
-            let feed_chunksize =
-                (handle.as_mut().unwrap().get_feed_chunksize.unwrap())(data) as usize;
-
+            let feed_chunksize = (handle.as_mut().unwrap().get_feed_chunksize.unwrap())(data);
+            let mn_checksize = ((*multinet).get_samp_chunksize.unwrap())(multinet_data);
+            if feed_chunksize != mn_checksize {
+                log::error!(
+                    "feed_chunksize: {}, mn_checksize: {}",
+                    feed_chunksize,
+                    mn_checksize
+                );
+            }
+            let wakeup_flag = Box::into_raw(Box::new(false));
             AFE {
                 handle,
                 data,
+                wakeup_flag,
                 multinet,
                 multinet_data,
-                feed_chunksize,
+                feed_chunksize: feed_chunksize as usize,
             }
         }
     }
@@ -135,22 +144,47 @@ impl AFE {
                 return Err(result.ret_value);
             }
 
+            if result.wakeup_state == esp_sr::wakenet_state_t_WAKENET_DETECTED {
+                log::info!("wakenet detected");
+                ((*multinet).clean.unwrap())(multinet_data);
+            }
+
+            // log::info!("result: {:?}", result);
             let mut mn_cmd_ids: Option<Vec<i32>> = None;
-            let mn_state = ((*multinet).detect.unwrap())(multinet_data, result.data);
-            log::info!("mn_state: {:?}", mn_state);
-            if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_DETECTED {
-                let result = ((*multinet).get_results.unwrap())(multinet_data);
-                log::info!("mn result: {:?}", result);
-                let mut cmd_ids = Vec::new();
-                for i in 0..(*result).num {
-                    log::info!(
-                        "TOP {}, command_id: {}",
-                        i,
-                        (*result).command_id[i as usize]
-                    );
-                    cmd_ids.push((*result).command_id[i as usize]);
+            if result.raw_data_channels == 1
+                && result.wakeup_state == esp_sr::wakenet_state_t_WAKENET_DETECTED
+            {
+                *self.wakeup_flag = true;
+            } else if result.raw_data_channels > 1
+                && result.wakeup_state == esp_sr::wakenet_state_t_WAKENET_CHANNEL_VERIFIED
+            {
+                *self.wakeup_flag = true;
+            }
+            // log::info!("wakeup_flag: {}", wakeup_flag);
+            if *self.wakeup_flag {
+                let mn_state = ((*multinet).detect.unwrap())(multinet_data, result.data);
+                log::info!("mn_state: {:?}", mn_state);
+                if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_DETECTING {
+                    log::info!("detecting");
+                } else if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_DETECTED {
+                    let result = ((*multinet).get_results.unwrap())(multinet_data);
+                    log::info!("mn result: {:?}", result);
+                    let mut cmd_ids = Vec::new();
+                    for i in 0..(*result).num {
+                        log::info!(
+                            "TOP {}, command_id: {}",
+                            i,
+                            (*result).command_id[i as usize]
+                        );
+                        cmd_ids.push((*result).command_id[i as usize]);
+                    }
+                    mn_cmd_ids = Some(cmd_ids);
+                } else if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_TIMEOUT {
+                    let result = ((*multinet).get_results.unwrap())(multinet_data);
+                    log::info!("mn timeout result: {:?}", result);
+                    ((*afe_handle).enable_wakenet.unwrap())(afe_data);
+                    *self.wakeup_flag = false;
                 }
-                mn_cmd_ids = Some(cmd_ids);
             }
 
             let data_size = result.data_size;
@@ -252,8 +286,7 @@ async fn i2s_player_(
     let mut tx_driver = I2sDriver::new_std_tx(i2s1, &i2s_config, bclk, dout, mclk, lrclk).unwrap();
     tx_driver.tx_enable()?;
 
-    // 10ms
-    let mut buf = [0u8; 2 * 160];
+    let mut buf = vec![0u8; afe_handle.feed_chunksize];
     let mut speaking = false;
 
     let mut hello_audio = WAKE_WAV.to_vec();
@@ -270,10 +303,8 @@ async fn i2s_player_(
                     Some(data)
                 }
                 _ = async {} => {
-                    for _ in 0..10{
                         let n = rx_driver.read(&mut buf, 100 / PORT_TICK_PERIOD_MS)?;
                         afe_handle.feed(&buf[..n]);
-                    }
                     None
                 }
             }
@@ -384,7 +415,7 @@ async fn i2s_player(
     driver.tx_enable()?;
     driver.rx_enable()?;
 
-    let mut buf = [0u8; 2 * 160];
+    let mut buf = vec![0u8; afe_handle.feed_chunksize];
     let mut speaking = false;
 
     let mut hello_audio = WAKE_WAV.to_vec();
