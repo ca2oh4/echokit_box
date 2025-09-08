@@ -481,6 +481,7 @@ fn afe_worker(
                 tx2.blocking_send(cmd_id)
                     .map_err(|_| anyhow::anyhow!("Failed to send data"))?;
             }
+            continue;
         }
         if result.data.is_empty() {
             continue;
