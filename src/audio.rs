@@ -38,8 +38,8 @@ unsafe fn afe_init() -> (
         esp_sr::ESP_WN_PREFIX.as_ptr() as *const _,
         std::ptr::null_mut() as *const _,
     );
-    afe_config.wakenet_init = true;
-    afe_config.wakenet_mode = esp_sr::det_mode_t_DET_MODE_90;
+    // afe_config.wakenet_init = true;
+    // afe_config.wakenet_mode = esp_sr::det_mode_t_DET_MODE_90;
 
     log::info!("{afe_config:?}");
 
