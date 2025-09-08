@@ -32,6 +32,12 @@ unsafe fn afe_init() -> (
     afe_config.vad_min_noise_ms = 500;
     afe_config.vad_mode = esp_sr::vad_mode_t_VAD_MODE_1;
     afe_config.agc_init = true;
+
+    afe_config.wakenet_model_name = esp_sr::esp_srmodel_filter(
+        models,
+        esp_sr::ESP_WN_PREFIX.as_ptr() as *const _,
+        std::ptr::null_mut() as *const _,
+    );
     afe_config.wakenet_init = true;
     afe_config.wakenet_mode = esp_sr::det_mode_t_DET_MODE_90;
 
@@ -83,7 +89,7 @@ unsafe impl Sync for AFE {}
 struct AFEResult {
     data: Vec<u8>,
     speech: bool,
-    mn_cmd_ids: Option<Vec<i32>>,
+    mn_cmd_ids: Vec<i32>,
 }
 
 impl AFE {
@@ -144,24 +150,25 @@ impl AFE {
                 return Err(result.ret_value);
             }
 
+            // log::info!("result: {:?}", result);
             if result.wakeup_state == esp_sr::wakenet_state_t_WAKENET_DETECTED {
                 log::info!("wakenet detected");
                 ((*multinet).clean.unwrap())(multinet_data);
             }
 
-            // log::info!("result: {:?}", result);
-            let mut mn_cmd_ids: Option<Vec<i32>> = None;
             if result.raw_data_channels == 1
                 && result.wakeup_state == esp_sr::wakenet_state_t_WAKENET_DETECTED
             {
                 *self.wakeup_flag = true;
+                ((*afe_handle).disable_wakenet.unwrap())(afe_data);
             } else if result.raw_data_channels > 1
                 && result.wakeup_state == esp_sr::wakenet_state_t_WAKENET_CHANNEL_VERIFIED
             {
                 *self.wakeup_flag = true;
+                ((*afe_handle).disable_wakenet.unwrap())(afe_data);
             }
-            // log::info!("wakeup_flag: {}", wakeup_flag);
             if *self.wakeup_flag {
+                let mut mn_cmd_ids: Vec<i32> = Vec::new();
                 let mn_state = ((*multinet).detect.unwrap())(multinet_data, result.data);
                 log::info!("mn_state: {:?}", mn_state);
                 if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_DETECTING {
@@ -169,22 +176,25 @@ impl AFE {
                 } else if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_DETECTED {
                     let result = ((*multinet).get_results.unwrap())(multinet_data);
                     log::info!("mn result: {:?}", result);
-                    let mut cmd_ids = Vec::new();
                     for i in 0..(*result).num {
                         log::info!(
                             "TOP {}, command_id: {}",
                             i,
                             (*result).command_id[i as usize]
                         );
-                        cmd_ids.push((*result).command_id[i as usize]);
+                        mn_cmd_ids.push((*result).command_id[i as usize]);
                     }
-                    mn_cmd_ids = Some(cmd_ids);
                 } else if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_TIMEOUT {
                     let result = ((*multinet).get_results.unwrap())(multinet_data);
                     log::info!("mn timeout result: {:?}", result);
                     ((*afe_handle).enable_wakenet.unwrap())(afe_data);
                     *self.wakeup_flag = false;
                 }
+                return Ok(AFEResult {
+                    data: vec![0],
+                    speech: false,
+                    mn_cmd_ids,
+                });
             }
 
             let data_size = result.data_size;
@@ -205,7 +215,7 @@ impl AFE {
             Ok(AFEResult {
                 data,
                 speech,
-                mn_cmd_ids,
+                mn_cmd_ids: vec![0],
             })
         }
     }
@@ -303,8 +313,8 @@ async fn i2s_player_(
                     Some(data)
                 }
                 _ = async {} => {
-                        let n = rx_driver.read(&mut buf, 100 / PORT_TICK_PERIOD_MS)?;
-                        afe_handle.feed(&buf[..n]);
+                    let n = rx_driver.read(&mut buf, 100 / PORT_TICK_PERIOD_MS)?;
+                    afe_handle.feed(&buf[..n]);
                     None
                 }
             }
@@ -506,14 +516,16 @@ fn afe_worker(
             continue;
         }
         let result = result.unwrap();
-        if result.mn_cmd_ids.is_some() {
-            for cmd_id in result.mn_cmd_ids.unwrap() {
+
+        if !result.mn_cmd_ids.is_empty() {
+            for cmd_id in result.mn_cmd_ids {
                 log::info!("Sending command id {}", cmd_id);
                 tx2.blocking_send(cmd_id)
                     .map_err(|_| anyhow::anyhow!("Failed to send data"))?;
             }
             continue;
         }
+
         if result.data.is_empty() {
             continue;
         }
