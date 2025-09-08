@@ -286,7 +286,7 @@ async fn i2s_player_(
     let mut tx_driver = I2sDriver::new_std_tx(i2s1, &i2s_config, bclk, dout, mclk, lrclk).unwrap();
     tx_driver.tx_enable()?;
 
-    let mut buf = vec![0u8; afe_handle.feed_chunksize];
+    let mut buf = vec![0u8; afe_handle.feed_chunksize * 2];
     let mut speaking = false;
 
     let mut hello_audio = WAKE_WAV.to_vec();
@@ -415,7 +415,7 @@ async fn i2s_player(
     driver.tx_enable()?;
     driver.rx_enable()?;
 
-    let mut buf = vec![0u8; afe_handle.feed_chunksize];
+    let mut buf = vec![0u8; afe_handle.feed_chunksize * 2];
     let mut speaking = false;
 
     let mut hello_audio = WAKE_WAV.to_vec();
