@@ -192,6 +192,7 @@ fn main() -> anyhow::Result<()> {
 
     let (evt_tx, evt_rx) = tokio::sync::mpsc::channel(64);
     let (tx1, rx1) = tokio::sync::mpsc::unbounded_channel();
+    let (tx2, rx2) = tokio::sync::mpsc::channel(64);
 
     #[cfg(feature = "box")]
     let i2s_task = {
@@ -207,6 +208,7 @@ fn main() -> anyhow::Result<()> {
             dout.into(),
             ws.into(),
             (evt_tx.clone(), rx1),
+            tx2,
         )
     };
 
@@ -229,6 +231,7 @@ fn main() -> anyhow::Result<()> {
             lrclk.into(),
             dout.into(),
             (evt_tx.clone(), rx1),
+            tx2,
         )
     };
 
@@ -255,18 +258,13 @@ fn main() -> anyhow::Result<()> {
 
     let ws_task = app::main_work(server, tx1, evt_rx, background_gif);
 
+    let mut rx2 = rx2;
     b.spawn(async move {
         loop {
-            let _ = button.wait_for_falling_edge().await;
-            log::info!("Button k0 pressed {:?}", button.get_level());
-
-            let r = tokio::time::timeout(
-                std::time::Duration::from_secs(1),
-                button.wait_for_rising_edge(),
-            )
-            .await;
-            match r {
-                Ok(_) => {
+            let cmd_id = rx2.recv().await.unwrap();
+            log::info!("received cmd_id {:?}", cmd_id);
+            match cmd_id {
+                0 | 1 => {
                     if evt_tx
                         .send(app::Event::Event(app::Event::K0))
                         .await
@@ -276,7 +274,7 @@ fn main() -> anyhow::Result<()> {
                         break;
                     }
                 }
-                Err(_) => {
+                2 => {
                     if evt_tx
                         .send(app::Event::Event(app::Event::K0_))
                         .await
@@ -285,6 +283,9 @@ fn main() -> anyhow::Result<()> {
                         log::error!("Failed to send K0 event");
                         break;
                     }
+                }
+                _ => {
+                    log::error!("Invalid cmd_id: {}", cmd_id);
                 }
             }
         }

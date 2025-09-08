@@ -82,6 +82,7 @@ unsafe impl Sync for AFE {}
 struct AFEResult {
     data: Vec<u8>,
     speech: bool,
+    mn_cmd_ids: Option<Vec<i32>>,
 }
 
 impl AFE {
@@ -134,32 +135,22 @@ impl AFE {
                 return Err(result.ret_value);
             }
 
-            // log::info!("result: {:?}", result);
-            let mut wakeup_flag = false;
-            if result.raw_data_channels == 1
-                && result.wakeup_state == esp_sr::wakenet_state_t_WAKENET_DETECTED
-            {
-                wakeup_flag = true;
-            } else if result.raw_data_channels > 1
-                && result.wakeup_state == esp_sr::wakenet_state_t_WAKENET_CHANNEL_VERIFIED
-            {
-                wakeup_flag = true;
-            }
-            // log::info!("wakeup_flag: {}", wakeup_flag);
-            if wakeup_flag {
-                let mn_state = ((*multinet).detect.unwrap())(multinet_data, result.data);
-                log::info!("mn_state: {:?}", mn_state);
-                if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_DETECTED {
-                    let result = ((*multinet).get_results.unwrap())(multinet_data);
-                    log::info!("result: {:?}", result);
-                    for i in 0..(*result).num {
-                        log::info!(
-                            "TOP {}, command_id: {}",
-                            i,
-                            (*result).command_id[i as usize]
-                        );
-                    }
+            let mut mn_cmd_ids: Option<Vec<i32>> = None;
+            let mn_state = ((*multinet).detect.unwrap())(multinet_data, result.data);
+            log::info!("mn_state: {:?}", mn_state);
+            if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_DETECTED {
+                let result = ((*multinet).get_results.unwrap())(multinet_data);
+                log::info!("mn result: {:?}", result);
+                let mut cmd_ids = Vec::new();
+                for i in 0..(*result).num {
+                    log::info!(
+                        "TOP {}, command_id: {}",
+                        i,
+                        (*result).command_id[i as usize]
+                    );
+                    cmd_ids.push((*result).command_id[i as usize]);
                 }
+                mn_cmd_ids = Some(cmd_ids);
             }
 
             let data_size = result.data_size;
@@ -177,7 +168,11 @@ impl AFE {
             };
 
             let speech = vad_state == esp_sr::vad_state_t_VAD_SPEECH;
-            Ok(AFEResult { data, speech })
+            Ok(AFEResult {
+                data,
+                speech,
+                mn_cmd_ids,
+            })
         }
     }
 }
@@ -208,10 +203,11 @@ pub async fn i2s_task_(
     lrclk: AnyIOPin,
     dout: AnyIOPin,
     (tx, rx): (MicTx, PlayerRx),
+    tx2: tokio::sync::mpsc::Sender<i32>,
 ) {
     let afe_handle = Arc::new(AFE::new());
     let afe_handle_ = afe_handle.clone();
-    let afe_r = std::thread::spawn(|| afe_worker(afe_handle_, tx));
+    let afe_r = std::thread::spawn(|| afe_worker(afe_handle_, tx, tx2));
     let r = i2s_player_(i2s, ws, sck, din, i2s1, bclk, lrclk, dout, afe_handle, rx).await;
     if let Err(e) = r {
         log::error!("Error: {}", e);
@@ -343,10 +339,11 @@ pub async fn i2s_task(
     dout: AnyIOPin,
     ws: AnyIOPin,
     (tx, rx): (MicTx, PlayerRx),
+    tx2: tokio::sync::mpsc::Sender<i32>,
 ) {
     let afe_handle = Arc::new(AFE::new());
     let afe_handle_ = afe_handle.clone();
-    let afe_r = std::thread::spawn(|| afe_worker(afe_handle_, tx));
+    let afe_r = std::thread::spawn(|| afe_worker(afe_handle_, tx, tx2));
     let r = i2s_player(i2s, bclk, din, dout, ws, afe_handle, rx).await;
     if let Err(e) = r {
         log::error!("Error: {}", e);
@@ -466,7 +463,11 @@ async fn i2s_player(
     // Ok(())
 }
 
-fn afe_worker(afe_handle: Arc<AFE>, tx: MicTx) -> anyhow::Result<()> {
+fn afe_worker(
+    afe_handle: Arc<AFE>,
+    tx: MicTx,
+    tx2: tokio::sync::mpsc::Sender<i32>,
+) -> anyhow::Result<()> {
     let mut speech = false;
     loop {
         let result = afe_handle.fetch();
@@ -474,6 +475,13 @@ fn afe_worker(afe_handle: Arc<AFE>, tx: MicTx) -> anyhow::Result<()> {
             continue;
         }
         let result = result.unwrap();
+        if result.mn_cmd_ids.is_some() {
+            for cmd_id in result.mn_cmd_ids.unwrap() {
+                log::info!("Sending command id {}", cmd_id);
+                tx2.blocking_send(cmd_id)
+                    .map_err(|_| anyhow::anyhow!("Failed to send data"))?;
+            }
+        }
         if result.data.is_empty() {
             continue;
         }
