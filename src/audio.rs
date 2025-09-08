@@ -159,21 +159,26 @@ impl AFE {
             if result.raw_data_channels == 1
                 && result.wakeup_state == esp_sr::wakenet_state_t_WAKENET_DETECTED
             {
+                log::info!("single channel detected");
                 *self.wakeup_flag = true;
                 ((*afe_handle).disable_wakenet.unwrap())(afe_data);
             } else if result.raw_data_channels > 1
                 && result.wakeup_state == esp_sr::wakenet_state_t_WAKENET_CHANNEL_VERIFIED
             {
+                log::info!("multi channel detected");
                 *self.wakeup_flag = true;
                 ((*afe_handle).disable_wakenet.unwrap())(afe_data);
             }
             if *self.wakeup_flag {
+                log::info!("wakeup_flag: true");
+
                 let mut mn_cmd_ids: Vec<i32> = Vec::new();
                 let mn_state = ((*multinet).detect.unwrap())(multinet_data, result.data);
                 log::info!("mn_state: {:?}", mn_state);
                 if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_DETECTING {
-                    log::info!("detecting");
+                    log::info!("mn_state detecting");
                 } else if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_DETECTED {
+                    log::info!("mn_state detected");
                     let result = ((*multinet).get_results.unwrap())(multinet_data);
                     log::info!("mn result: {:?}", result);
                     for i in 0..(*result).num {
@@ -185,13 +190,14 @@ impl AFE {
                         mn_cmd_ids.push((*result).command_id[i as usize]);
                     }
                 } else if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_TIMEOUT {
+                    log::info!("mn_state timeout");
                     let result = ((*multinet).get_results.unwrap())(multinet_data);
                     log::info!("mn timeout result: {:?}", result);
                     ((*afe_handle).enable_wakenet.unwrap())(afe_data);
                     *self.wakeup_flag = false;
                 }
                 return Ok(AFEResult {
-                    data: vec![0],
+                    data: vec![],
                     speech: false,
                     mn_cmd_ids,
                 });
@@ -215,7 +221,7 @@ impl AFE {
             Ok(AFEResult {
                 data,
                 speech,
-                mn_cmd_ids: vec![0],
+                mn_cmd_ids: vec![],
             })
         }
     }
