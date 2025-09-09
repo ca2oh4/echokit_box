@@ -2,7 +2,10 @@
 
 cargo build --release
 # find srmodels.bin
-find . -name srmodels.bin
+srmodels_bin_path=`find . -name srmodels.bin | grep release`
+echo $srmodels_bin_path
 # copy srmodels.bin
-cp ./target/xtensa-esp32s3-espidf/release/build/esp-idf-sys-771afe2b71dc2f41/out/build/srmodels/srmodels.bin .
-cp ./target/xtensa-esp32s3-espidf/release/echokit .
+cp -f $srmodels_bin_path .
+cp -f ./target/xtensa-esp32s3-espidf/release/echokit .
+
+ls -lah
