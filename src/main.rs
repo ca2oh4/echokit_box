@@ -8,7 +8,6 @@ mod bt;
 mod hal;
 mod network;
 mod protocol;
-mod sntp;
 mod ui;
 mod ws;
 
@@ -184,16 +183,6 @@ fn main() -> anyhow::Result<()> {
 
     let wifi = _wifi.unwrap();
     log_heap();
-
-    #[cfg(feature = "wss")]
-    {
-        let now_time = sntp::sync_time();
-        gui.state = "SNTP sync".to_string();
-        gui.text = format!("{}", now_time);
-        gui.display_flush().unwrap();
-
-        log_heap();
-    }
 
     let (evt_tx, evt_rx) = tokio::sync::mpsc::channel(8);
     let (tx1, rx1) = tokio::sync::mpsc::unbounded_channel();

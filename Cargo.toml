@@ -25,9 +25,6 @@ experimental = ["esp-idf-svc/experimental"]
 boards = []
 box = []
 
-wss = []
-ws = []
-
 [dependencies]
 log = "0.4"
 anyhow = "1.0"
@@ -70,10 +67,7 @@ tokio-websockets = { version = "0.8", features = [
     "client",
     "fastrand",
     "sha1_smol",
-    "rustls-webpki-roots",
 ] }
-rustls-rustcrypto = "0.0.2-alpha"
-chrono = { version = "0.4.41", default-features = false, features = ["now", "pure-rust-locales", "clock"] }
 
 bytes = "1.10.0"
 
