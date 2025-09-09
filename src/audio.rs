@@ -17,6 +17,7 @@ unsafe fn afe_init() -> (
     *mut esp_sr::model_iface_data_t,
 ) {
     let models = esp_sr::esp_srmodel_init("model\0".as_ptr() as *const _);
+
     let afe_config = esp_sr::afe_config_init(
         "M\0".as_ptr() as _,
         models,
@@ -48,6 +49,7 @@ unsafe fn afe_init() -> (
     afe_config.wakenet_mode = esp_sr::det_mode_t_DET_MODE_90;
 
     log::info!("{afe_config:?}");
+    esp_sr::afe_config_print(afe_config);
 
     let afe_ringbuf_size = afe_config.afe_ringbuf_size;
     log::info!("afe ringbuf size: {}", afe_ringbuf_size);
