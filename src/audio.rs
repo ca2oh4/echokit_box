@@ -38,6 +38,12 @@ unsafe fn afe_init() -> (
         esp_sr::ESP_WN_PREFIX.as_ptr() as *const _,
         std::ptr::null_mut() as *const _,
     );
+    log::info!(
+        "wakenet_model_name: {:?}",
+        CStr::from_ptr(afe_config.wakenet_model_name as *const c_char)
+            .to_str()
+            .unwrap()
+    );
     // afe_config.wakenet_init = true;
     // afe_config.wakenet_mode = esp_sr::det_mode_t_DET_MODE_90;
 
@@ -59,14 +65,27 @@ unsafe fn afe_init() -> (
         esp_sr::ESP_MN_PREFIX.as_ptr() as *const _,
         esp_sr::ESP_MN_CHINESE.as_ptr() as *const _,
     );
-    log::info!("mn_name: {:?}", mn_name);
+    log::info!(
+        "mn_name: {:?}",
+        CStr::from_ptr(mn_name as *const c_char).to_str().unwrap()
+    );
     let multinet = esp_sr::esp_mn_handle_from_name(mn_name);
     log::info!("multinet: {:?}", multinet);
     let multinet_data = ((*multinet).create.unwrap())(mn_name, 6000 as c_int);
     log::info!("model_data: {:?}", multinet_data);
 
     esp_sr::esp_mn_commands_update_from_sdkconfig(multinet, multinet_data);
-    log::info!("print_active_speech_commands");
+    let mu_checksize = ((*multinet).get_samp_chunksize.unwrap())(multinet_data);
+    log::info!("mu_checksize: {}", mu_checksize);
+    if mu_checksize != audio_chunksize {
+        log::error!(
+            "mu_checksize: {}, audio_chunksize: {}",
+            mu_checksize,
+            audio_chunksize
+        );
+    }
+
+    log::info!("active_speech_commands");
     ((*multinet).print_active_speech_commands.unwrap())(multinet_data);
 
     (afe_handle, afe_data, multinet, multinet_data)
