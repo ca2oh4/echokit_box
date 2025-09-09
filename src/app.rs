@@ -204,13 +204,13 @@ pub async fn main_work<'d>(
             }
             Event::Event(Event::K0_ | Event::MN_CMD_2) => {
                 if state == State::Idle || state == State::Listening {
-                    log::info!("Received event: K0_");
+                    log::info!("Received event: {:?}",evt);
                     state = State::Recording;
                     gui.state = "Recording...".to_string();
                     gui.text = String::new();
                     gui.display_flush().unwrap();
                 } else {
-                    log::warn!("Received K0_ while not idle");
+                    log::warn!("Received {:?} while not idle", evt);
                 }
             }
             Event::Event(Event::RESET | Event::K2) => {}
