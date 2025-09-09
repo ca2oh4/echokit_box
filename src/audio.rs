@@ -288,11 +288,10 @@ pub async fn i2s_task_(
     lrclk: AnyIOPin,
     dout: AnyIOPin,
     (tx, rx): (MicTx, PlayerRx),
-    tx2: tokio::sync::mpsc::Sender<i32>,
 ) {
     let afe_handle = Arc::new(AFE::new());
     let afe_handle_ = afe_handle.clone();
-    let afe_r = std::thread::spawn(|| afe_worker(afe_handle_, tx, tx2));
+    let afe_r = std::thread::spawn(|| afe_worker(afe_handle_, tx));
     let r = i2s_player_(i2s, ws, sck, din, i2s1, bclk, lrclk, dout, afe_handle, rx).await;
     if let Err(e) = r {
         log::error!("Error: {}", e);
@@ -421,11 +420,10 @@ pub async fn i2s_task(
     dout: AnyIOPin,
     ws: AnyIOPin,
     (tx, rx): (MicTx, PlayerRx),
-    tx2: tokio::sync::mpsc::Sender<i32>,
 ) {
     let afe_handle = Arc::new(AFE::new());
     let afe_handle_ = afe_handle.clone();
-    let afe_r = std::thread::spawn(|| afe_worker(afe_handle_, tx, tx2));
+    let afe_r = std::thread::spawn(|| afe_worker(afe_handle_, tx));
     let r = i2s_player(i2s, bclk, din, dout, ws, afe_handle, rx).await;
     if let Err(e) = r {
         log::error!("Error: {}", e);
@@ -545,11 +543,7 @@ async fn i2s_player(
     // Ok(())
 }
 
-fn afe_worker(
-    afe_handle: Arc<AFE>,
-    tx: MicTx,
-    tx2: tokio::sync::mpsc::Sender<i32>,
-) -> anyhow::Result<()> {
+fn afe_worker(afe_handle: Arc<AFE>, tx: MicTx) -> anyhow::Result<()> {
     let mut speech = false;
     loop {
         let result = afe_handle.fetch();
@@ -561,8 +555,23 @@ fn afe_worker(
         if !result.mn_cmd_ids.is_empty() {
             for cmd_id in result.mn_cmd_ids {
                 log::info!("Sending command id {}", cmd_id);
-                tx2.blocking_send(cmd_id)
-                    .map_err(|_| anyhow::anyhow!("Failed to send data"))?;
+                match cmd_id {
+                    0 => {
+                        tx.blocking_send(crate::app::Event::Event(crate::app::Event::MN_CMD_0))
+                            .map_err(|_| anyhow::anyhow!("Failed to send MN_CMD_0"))?;
+                    }
+                    1 => {
+                        tx.blocking_send(crate::app::Event::Event(crate::app::Event::MN_CMD_1))
+                            .map_err(|_| anyhow::anyhow!("Failed to send MN_CMD_1"))?;
+                    }
+                    2 => {
+                        tx.blocking_send(crate::app::Event::Event(crate::app::Event::MN_CMD_2))
+                            .map_err(|_| anyhow::anyhow!("Failed to send MN_CMD_2"))?;
+                    }
+                    _ => {
+                        log::error!("Invalid cmd_id: {}", cmd_id);
+                    }
+                }
             }
             continue;
         }

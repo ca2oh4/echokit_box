@@ -24,7 +24,10 @@ impl Event {
     pub const RESET: &'static str = "reset";
     pub const UNKNOWN: &'static str = "unknown";
     pub const K0: &'static str = "k0";
+    pub const MN_CMD_0: &'static str = "mn_cmd_0"; // start listening
+    pub const MN_CMD_1: &'static str = "mn_cmd_1"; // stop listening
     pub const K0_: &'static str = "k0_";
+    pub const MN_CMD_2: &'static str = "mn_cmd_2"; // start recording
 
     pub const K1: &'static str = "k1";
     pub const K2: &'static str = "k2";
@@ -147,7 +150,7 @@ pub async fn main_work<'d>(
     while let Some(evt) = select_evt(&mut evt_rx, &mut server).await {
         match evt {
             Event::Event(Event::GAIA | Event::K0) => {
-                log::info!("Received event: gaia");
+                log::info!("Received event: {:?}", evt);
                 // gui.state = "gaia".to_string();
                 // gui.display_flush().unwrap();
 
@@ -169,7 +172,37 @@ pub async fn main_work<'d>(
                     gui.display_flush().unwrap();
                 }
             }
-            Event::Event(Event::K0_) => {
+            Event::Event(Event::MN_CMD_0) => {
+                log::info!("Received event: MN_CMD_0");
+                if state == State::Listening {
+                    log::info!("Received MN_CMD_0 while listening");
+                    continue;
+                }
+
+                let (tx, rx) = tokio::sync::oneshot::channel();
+                player_tx
+                    .send(AudioData::Hello(tx))
+                    .map_err(|e| anyhow::anyhow!("Error sending hello: {e:?}"))?;
+                log::info!("Waiting for hello response");
+                let _ = rx.await;
+                log::info!("Hello response received");
+
+                state = State::Listening;
+                gui.state = "Listening...".to_string();
+                gui.display_flush().unwrap();
+            }
+            Event::Event(Event::MN_CMD_1) => {
+                log::info!("Received event: MN_CMD_1");
+                if state == State::Idle {
+                    log::info!("Received MN_CMD_1 while idle");
+                    continue;
+                }
+
+                state = State::Idle;
+                gui.state = "Idle".to_string();
+                gui.display_flush().unwrap();
+            }
+            Event::Event(Event::K0_ | Event::MN_CMD_2) => {
                 if state == State::Idle || state == State::Listening {
                     log::info!("Received event: K0_");
                     state = State::Recording;
