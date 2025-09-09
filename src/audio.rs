@@ -44,8 +44,8 @@ unsafe fn afe_init() -> (
             .to_str()
             .unwrap()
     );
-    // afe_config.wakenet_init = true;
-    // afe_config.wakenet_mode = esp_sr::det_mode_t_DET_MODE_90;
+    afe_config.wakenet_init = true;
+    afe_config.wakenet_mode = esp_sr::det_mode_t_DET_MODE_90;
 
     log::info!("{afe_config:?}");
 
@@ -71,8 +71,13 @@ unsafe fn afe_init() -> (
     );
     let multinet = esp_sr::esp_mn_handle_from_name(mn_name);
     log::info!("multinet: {:?}", multinet);
+
+    // 设置唤醒后等待时间为 6000 ms
     let multinet_data = ((*multinet).create.unwrap())(mn_name, 6000 as c_int);
     log::info!("model_data: {:?}", multinet_data);
+
+    // 调节阈值
+    (*multinet).set_det_threshold.unwrap()(multinet_data, 0.05);
 
     esp_sr::esp_mn_commands_update_from_sdkconfig(multinet, multinet_data);
     let mu_checksize = ((*multinet).get_samp_chunksize.unwrap())(multinet_data);
@@ -84,6 +89,14 @@ unsafe fn afe_init() -> (
             audio_chunksize
         );
     }
+
+    let mn_language = (*multinet).get_language.unwrap()(multinet_data);
+    log::info!(
+        "mn_language: {:?}",
+        CStr::from_ptr(mn_language as *const c_char)
+            .to_str()
+            .unwrap()
+    );
 
     log::info!("active_speech_commands");
     ((*multinet).print_active_speech_commands.unwrap())(multinet_data);
