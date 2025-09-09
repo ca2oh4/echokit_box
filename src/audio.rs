@@ -33,6 +33,7 @@ unsafe fn afe_init() -> (
     afe_config.vad_min_noise_ms = 500;
     afe_config.vad_mode = esp_sr::vad_mode_t_VAD_MODE_1;
     afe_config.agc_init = true;
+    afe_config.memory_alloc_mode = esp_sr::afe_memory_alloc_mode_t_AFE_MEMORY_ALLOC_MORE_PSRAM;
 
     afe_config.wakenet_model_name = esp_sr::esp_srmodel_filter(
         models,
