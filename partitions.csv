@@ -4,5 +4,5 @@
 # nvs,      data, nvs,     ,        0x6000,
 nvs,      data, nvs,     ,        2M,
 phy_init, data, phy,     ,        0x1000,
-factory,  app,  factory, ,        6M,
-model,    data, spiffs,  ,        6M,
+factory,  app,  factory, ,        5M,
+model,    data, spiffs,  ,        5M,

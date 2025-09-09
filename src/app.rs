@@ -124,6 +124,7 @@ pub async fn main_work<'d>(
     enum State {
         Listening,
         Recording,
+        #[warn(dead_code)]
         Wait,
         Speaking,
         Idle,

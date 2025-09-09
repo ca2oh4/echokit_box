@@ -17,6 +17,27 @@ pub struct Server {
 }
 
 impl Server {
+    #[cfg(not(feature = "wss"))]
+    pub async fn new(uri: String) -> anyhow::Result<Self> {
+        log::info!("uri: {}", uri);
+
+        let (ws, resp) = tokio_websockets::ClientBuilder::new()
+            .uri(&uri)?
+            .connect()
+            .await?;
+
+        log::info!(
+            "ws resp status: {:?}, headers: {:?} ",
+            resp.status(),
+            resp.headers()
+        );
+
+        let timeout = std::time::Duration::from_secs(30);
+
+        Ok(Self { timeout, ws })
+    }
+
+    #[cfg(feature = "wss")]
     pub async fn new(uri: String) -> anyhow::Result<Self> {
         log::info!("uri: {}", uri);
 

@@ -25,6 +25,9 @@ experimental = ["esp-idf-svc/experimental"]
 boards = []
 box = []
 
+wss = []
+ws = []
+
 [dependencies]
 log = "0.4"
 anyhow = "1.0"

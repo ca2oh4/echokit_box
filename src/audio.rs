@@ -79,8 +79,17 @@ unsafe fn afe_init() -> (
     let multinet_data = ((*multinet).create.unwrap())(mn_name, 6000 as c_int);
     log::info!("model_data: {:?}", multinet_data);
 
+    let mn_language = (*multinet).get_language.unwrap()(multinet_data);
+    log::info!(
+        "mn_language: {:?}",
+        CStr::from_ptr(mn_language as *const c_char)
+            .to_str()
+            .unwrap()
+    );
+
     // 调节阈值
     (*multinet).set_det_threshold.unwrap()(multinet_data, 0.05);
+    log::info!("mn_det_threshold: {:?}", 0.05);
 
     esp_sr::esp_mn_commands_update_from_sdkconfig(multinet, multinet_data);
     let mu_checksize = ((*multinet).get_samp_chunksize.unwrap())(multinet_data);
@@ -92,14 +101,6 @@ unsafe fn afe_init() -> (
             audio_chunksize
         );
     }
-
-    let mn_language = (*multinet).get_language.unwrap()(multinet_data);
-    log::info!(
-        "mn_language: {:?}",
-        CStr::from_ptr(mn_language as *const c_char)
-            .to_str()
-            .unwrap()
-    );
 
     log::info!("active_speech_commands");
     ((*multinet).print_active_speech_commands.unwrap())(multinet_data);
@@ -413,6 +414,7 @@ async fn i2s_player_(
     // Ok(())
 }
 
+#[warn(dead_code)]
 pub async fn i2s_task(
     i2s: I2S0,
     bclk: AnyIOPin,

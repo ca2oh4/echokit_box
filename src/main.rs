@@ -185,20 +185,17 @@ fn main() -> anyhow::Result<()> {
     let wifi = _wifi.unwrap();
     log_heap();
 
-    let now_time = sntp::sync_time();
-    gui.state = "SNTP sync".to_string();
-    gui.text = format!("{}", now_time);
-    gui.display_flush().unwrap();
+    #[cfg(feature = "wss")]
+    {
+        let now_time = sntp::sync_time();
+        gui.state = "SNTP sync".to_string();
+        gui.text = format!("{}", now_time);
+        gui.display_flush().unwrap();
 
-    log_heap();
+        log_heap();
+    }
 
-    let mac = wifi.ap_netif().get_mac().unwrap();
-    let mac_str = format!(
-        "{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-        mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]
-    );
-
-    let (evt_tx, evt_rx) = tokio::sync::mpsc::channel(64);
+    let (evt_tx, evt_rx) = tokio::sync::mpsc::channel(8);
     let (tx1, rx1) = tokio::sync::mpsc::unbounded_channel();
 
     #[cfg(feature = "box")]
@@ -248,6 +245,11 @@ fn main() -> anyhow::Result<()> {
 
     let server_url = {
         let setting = setting.lock().unwrap();
+        let mac = wifi.ap_netif().get_mac().unwrap();
+        let mac_str = format!(
+            "{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]
+        );
         format!("{}{}", setting.0.server_url, mac_str)
     };
     let server = b.block_on(ws::Server::new(server_url.clone()));
