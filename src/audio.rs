@@ -564,10 +564,6 @@ fn afe_worker(afe_handle: Arc<AFE>, tx: MicTx) -> anyhow::Result<()> {
                         tx.blocking_send(crate::app::Event::Event(crate::app::Event::MN_CMD_1))
                             .map_err(|_| anyhow::anyhow!("Failed to send MN_CMD_1"))?;
                     }
-                    2 => {
-                        tx.blocking_send(crate::app::Event::Event(crate::app::Event::MN_CMD_2))
-                            .map_err(|_| anyhow::anyhow!("Failed to send MN_CMD_2"))?;
-                    }
                     _ => {
                         log::error!("Invalid cmd_id: {}", cmd_id);
                     }

@@ -27,7 +27,6 @@ impl Event {
     pub const MN_CMD_0: &'static str = "mn_cmd_0"; // start listening
     pub const MN_CMD_1: &'static str = "mn_cmd_1"; // stop listening
     pub const K0_: &'static str = "k0_";
-    pub const MN_CMD_2: &'static str = "mn_cmd_2"; // start recording
 
     pub const K1: &'static str = "k1";
     pub const K2: &'static str = "k2";
@@ -202,15 +201,15 @@ pub async fn main_work<'d>(
                 gui.state = "Idle".to_string();
                 gui.display_flush().unwrap();
             }
-            Event::Event(Event::K0_ | Event::MN_CMD_2) => {
+            Event::Event(Event::K0_) => {
                 if state == State::Idle || state == State::Listening {
-                    log::info!("Received event: {:?}", evt);
+                    log::info!("Received event: K0_");
                     state = State::Recording;
                     gui.state = "Recording...".to_string();
                     gui.text = String::new();
                     gui.display_flush().unwrap();
                 } else {
-                    log::warn!("Received {:?} while not idle", evt);
+                    log::warn!("Received K0_ while not idle");
                 }
             }
             Event::Event(Event::RESET | Event::K2) => {}
