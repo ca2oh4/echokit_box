@@ -204,7 +204,7 @@ pub async fn main_work<'d>(
             }
             Event::Event(Event::K0_ | Event::MN_CMD_2) => {
                 if state == State::Idle || state == State::Listening {
-                    log::info!("Received event: {:?}",evt);
+                    log::info!("Received event: {:?}", evt);
                     state = State::Recording;
                     gui.state = "Recording...".to_string();
                     gui.text = String::new();
