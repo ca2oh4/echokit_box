@@ -24,14 +24,15 @@ unsafe fn afe_init() -> (
         esp_sr::afe_type_t_AFE_TYPE_SR,
         esp_sr::afe_mode_t_AFE_MODE_LOW_COST,
     );
+
     let afe_config = afe_config.as_mut().unwrap();
     afe_config.pcm_config.total_ch_num = 1;
     afe_config.pcm_config.mic_num = 1;
     afe_config.pcm_config.ref_num = 0;
     afe_config.pcm_config.sample_rate = SAMPLE_RATE as i32;
     afe_config.afe_ringbuf_size = 64;
-    afe_config.vad_min_noise_ms = 500;
-    afe_config.vad_mode = esp_sr::vad_mode_t_VAD_MODE_1;
+    // afe_config.vad_min_noise_ms = 500;
+    // afe_config.vad_mode = esp_sr::vad_mode_t_VAD_MODE_1;
     // afe_config.agc_init = true;
     afe_config.memory_alloc_mode = esp_sr::afe_memory_alloc_mode_t_AFE_MEMORY_ALLOC_MORE_PSRAM;
     afe_config.debug_init = true;
