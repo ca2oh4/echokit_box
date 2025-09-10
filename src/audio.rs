@@ -59,10 +59,13 @@ unsafe fn afe_init() -> (
     let afe_handle = esp_sr::esp_afe_handle_from_config(afe_config);
     let afe_handle = afe_handle.as_mut().unwrap();
     let afe_data = (afe_handle.create_from_config.unwrap())(afe_config);
+    esp_sr::afe_config_free(afe_config);
+
     let audio_chunksize = (afe_handle.get_feed_chunksize.unwrap())(afe_data);
     log::info!("audio chunksize: {}", audio_chunksize);
 
-    esp_sr::afe_config_free(afe_config);
+    afe_handle.set_wakenet_threshold.unwrap()(afe_data, 1, 0.6);
+    log::info!("wakenet threshold: {:?}", 0.6);
 
     let mn_name = esp_sr::esp_srmodel_filter(
         models,
