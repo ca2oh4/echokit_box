@@ -152,55 +152,55 @@ impl AFE {
             // log::info!("result: {:?}", result);
             if result.wakeup_state == esp_sr::wakenet_state_t_WAKENET_DETECTED {
                 log::info!("wakenet detected");
-                ((*multinet).clean.unwrap())(multinet_data);
+                // ((*multinet).clean.unwrap())(multinet_data);
             }
 
-            if result.raw_data_channels == 1
-                && result.wakeup_state == esp_sr::wakenet_state_t_WAKENET_DETECTED
-            {
-                log::info!("single channel detected");
-                *wakeup_flag = true;
-                ((*afe_handle).disable_wakenet.unwrap())(afe_data);
-            } else if result.raw_data_channels > 1
-                && result.wakeup_state == esp_sr::wakenet_state_t_WAKENET_CHANNEL_VERIFIED
-            {
-                log::info!("multi channel detected");
-                *wakeup_flag = true;
-                ((*afe_handle).disable_wakenet.unwrap())(afe_data);
-            }
-            if *wakeup_flag {
-                log::info!("wakeup_flag: true");
+            // if result.raw_data_channels == 1
+            //     && result.wakeup_state == esp_sr::wakenet_state_t_WAKENET_DETECTED
+            // {
+            //     log::info!("single channel detected");
+            //     *wakeup_flag = true;
+            //     ((*afe_handle).disable_wakenet.unwrap())(afe_data);
+            // } else if result.raw_data_channels > 1
+            //     && result.wakeup_state == esp_sr::wakenet_state_t_WAKENET_CHANNEL_VERIFIED
+            // {
+            //     log::info!("multi channel detected");
+            //     *wakeup_flag = true;
+            //     ((*afe_handle).disable_wakenet.unwrap())(afe_data);
+            // }
+            // if *wakeup_flag {
+            //     log::info!("wakeup_flag: true");
 
-                let mut mn_cmd_ids: Vec<i32> = Vec::new();
-                let mn_state = ((*multinet).detect.unwrap())(multinet_data, result.data);
-                log::info!("mn_state: {:?}", mn_state);
-                if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_DETECTING {
-                    log::info!("mn_state detecting");
-                } else if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_DETECTED {
-                    log::info!("mn_state detected");
-                    let result = ((*multinet).get_results.unwrap())(multinet_data);
-                    log::info!("mn result: {:?}", result);
-                    for i in 0..(*result).num {
-                        log::info!(
-                            "TOP {}, command_id: {}",
-                            i,
-                            (*result).command_id[i as usize]
-                        );
-                        mn_cmd_ids.push((*result).command_id[i as usize]);
-                    }
-                } else if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_TIMEOUT {
-                    log::info!("mn_state timeout");
-                    let result = ((*multinet).get_results.unwrap())(multinet_data);
-                    log::info!("mn timeout result: {:?}", result);
-                    ((*afe_handle).enable_wakenet.unwrap())(afe_data);
-                    *wakeup_flag = false;
-                }
-                return Ok(AFEResult {
-                    data: vec![],
-                    speech: false,
-                    mn_cmd_ids,
-                });
-            }
+            //     let mut mn_cmd_ids: Vec<i32> = Vec::new();
+            //     let mn_state = ((*multinet).detect.unwrap())(multinet_data, result.data);
+            //     log::info!("mn_state: {:?}", mn_state);
+            //     if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_DETECTING {
+            //         log::info!("mn_state detecting");
+            //     } else if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_DETECTED {
+            //         log::info!("mn_state detected");
+            //         let result = ((*multinet).get_results.unwrap())(multinet_data);
+            //         log::info!("mn result: {:?}", result);
+            //         for i in 0..(*result).num {
+            //             log::info!(
+            //                 "TOP {}, command_id: {}",
+            //                 i,
+            //                 (*result).command_id[i as usize]
+            //             );
+            //             mn_cmd_ids.push((*result).command_id[i as usize]);
+            //         }
+            //     } else if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_TIMEOUT {
+            //         log::info!("mn_state timeout");
+            //         let result = ((*multinet).get_results.unwrap())(multinet_data);
+            //         log::info!("mn timeout result: {:?}", result);
+            //         ((*afe_handle).enable_wakenet.unwrap())(afe_data);
+            //         *wakeup_flag = false;
+            //     }
+            //     return Ok(AFEResult {
+            //         data: vec![],
+            //         speech: false,
+            //         mn_cmd_ids,
+            //     });
+            // }
 
             let data_size = result.data_size;
             let vad_state = result.vad_state;
@@ -512,43 +512,43 @@ fn afe_worker(afe_handle: Arc<AFE>, tx: MicTx) -> anyhow::Result<()> {
     let mut speech = false;
     let mut wakeup_flag = false;
 
-    let multinet: *mut esp_sr::esp_mn_iface_t;
-    let multinet_data: *mut esp_sr::model_iface_data_t;
+    let multinet: *mut esp_sr::esp_mn_iface_t = std::ptr::null_mut();
+    let multinet_data: *mut esp_sr::model_iface_data_t = std::ptr::null_mut();
 
-    unsafe {
-        let mn_name = esp_sr::esp_srmodel_filter(
-            afe_handle.models,
-            esp_sr::ESP_MN_PREFIX.as_ptr() as *const _,
-            esp_sr::ESP_MN_CHINESE.as_ptr() as *const _,
-        );
-        log::info!(
-            "mn_name: {:?}",
-            CStr::from_ptr(mn_name as *const c_char).to_str().unwrap()
-        );
-        multinet = esp_sr::esp_mn_handle_from_name(mn_name);
-        log::info!("multinet: {:?}", multinet);
+    // unsafe {
+    //     let mn_name = esp_sr::esp_srmodel_filter(
+    //         afe_handle.models,
+    //         esp_sr::ESP_MN_PREFIX.as_ptr() as *const _,
+    //         esp_sr::ESP_MN_CHINESE.as_ptr() as *const _,
+    //     );
+    //     log::info!(
+    //         "mn_name: {:?}",
+    //         CStr::from_ptr(mn_name as *const c_char).to_str().unwrap()
+    //     );
+    //     multinet = esp_sr::esp_mn_handle_from_name(mn_name);
+    //     log::info!("multinet: {:?}", multinet);
 
-        // 设置唤醒后等待时间为 6000 ms
-        multinet_data = ((*multinet).create.unwrap())(mn_name, 6000 as c_int);
-        log::info!("model_data: {:?}", multinet_data);
+    //     // 设置唤醒后等待时间为 6000 ms
+    //     multinet_data = ((*multinet).create.unwrap())(mn_name, 6000 as c_int);
+    //     log::info!("model_data: {:?}", multinet_data);
 
-        let mn_language = (*multinet).get_language.unwrap()(multinet_data);
-        log::info!(
-            "mn_language: {:?}",
-            CStr::from_ptr(mn_language as *const c_char)
-                .to_str()
-                .unwrap()
-        );
+    //     let mn_language = (*multinet).get_language.unwrap()(multinet_data);
+    //     log::info!(
+    //         "mn_language: {:?}",
+    //         CStr::from_ptr(mn_language as *const c_char)
+    //             .to_str()
+    //             .unwrap()
+    //     );
 
-        // // 调节阈值
-        // (*multinet).set_det_threshold.unwrap()(multinet_data, 0.05);
-        // log::info!("mn_det_threshold: {:?}", 0.05);
+    //     // // 调节阈值
+    //     // (*multinet).set_det_threshold.unwrap()(multinet_data, 0.05);
+    //     // log::info!("mn_det_threshold: {:?}", 0.05);
 
-        esp_sr::esp_mn_commands_update_from_sdkconfig(multinet, multinet_data);
+    //     esp_sr::esp_mn_commands_update_from_sdkconfig(multinet, multinet_data);
 
-        log::info!("active_speech_commands");
-        ((*multinet).print_active_speech_commands.unwrap())(multinet_data);
-    }
+    //     log::info!("active_speech_commands");
+    //     ((*multinet).print_active_speech_commands.unwrap())(multinet_data);
+    // }
     loop {
         let result = afe_handle.fetch(multinet, multinet_data, &mut wakeup_flag);
         if let Err(_e) = &result {
