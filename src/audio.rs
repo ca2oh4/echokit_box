@@ -18,6 +18,20 @@ unsafe fn afe_init() -> (
 ) {
     let models = esp_sr::esp_srmodel_init("model\0".as_ptr() as *const _);
 
+    if let Some(models) = models.as_ref() {
+        log::info!("init models successfully");
+
+        for i in 0..models.num {
+            let model_name_ptr = unsafe { *models.model_name.add(i as usize) };
+            log::info!(
+                "model_name: {:?}",
+                CStr::from_ptr(model_name_ptr)
+                    .to_str()
+                    .unwrap()
+            );
+        }
+    }
+
     let afe_config = esp_sr::afe_config_init(
         "M\0".as_ptr() as _,
         models,
