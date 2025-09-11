@@ -13,8 +13,7 @@ const PORT_TICK_PERIOD_MS: u32 = 1000 / esp_idf_svc::sys::configTICK_RATE_HZ;
 unsafe fn afe_init() -> (
     *mut esp_sr::esp_afe_sr_iface_t,
     *mut esp_sr::esp_afe_sr_data_t,
-    *mut esp_sr::esp_mn_iface_t,
-    *mut esp_sr::model_iface_data_t,
+    *mut esp_sr::srmodel_list_t,
 ) {
     let models = esp_sr::esp_srmodel_init("model\0".as_ptr() as *const _);
 
@@ -25,9 +24,7 @@ unsafe fn afe_init() -> (
             let model_name_ptr = unsafe { *models.model_name.add(i as usize) };
             log::info!(
                 "model_name: {:?}",
-                CStr::from_ptr(model_name_ptr)
-                    .to_str()
-                    .unwrap()
+                CStr::from_ptr(model_name_ptr).to_str().unwrap()
             );
         }
     }
@@ -79,61 +76,16 @@ unsafe fn afe_init() -> (
     let audio_chunksize = (afe_handle.get_feed_chunksize.unwrap())(afe_data);
     log::info!("audio chunksize: {}", audio_chunksize);
 
-    afe_handle.set_wakenet_threshold.unwrap()(afe_data, 1, 0.6);
-    log::info!("wakenet threshold: {:?}", 0.6);
+    // afe_handle.set_wakenet_threshold.unwrap()(afe_data, 1, 0.6);
+    // log::info!("wakenet threshold: {:?}", 0.6);
 
-    let mn_name = esp_sr::esp_srmodel_filter(
-        models,
-        esp_sr::ESP_MN_PREFIX.as_ptr() as *const _,
-        esp_sr::ESP_MN_CHINESE.as_ptr() as *const _,
-    );
-    log::info!(
-        "mn_name: {:?}",
-        CStr::from_ptr(mn_name as *const c_char).to_str().unwrap()
-    );
-    let multinet = esp_sr::esp_mn_handle_from_name(mn_name);
-    log::info!("multinet: {:?}", multinet);
-
-    // 设置唤醒后等待时间为 6000 ms
-    let multinet_data = ((*multinet).create.unwrap())(mn_name, 6000 as c_int);
-    log::info!("model_data: {:?}", multinet_data);
-
-    let mn_language = (*multinet).get_language.unwrap()(multinet_data);
-    log::info!(
-        "mn_language: {:?}",
-        CStr::from_ptr(mn_language as *const c_char)
-            .to_str()
-            .unwrap()
-    );
-
-    // // 调节阈值
-    // (*multinet).set_det_threshold.unwrap()(multinet_data, 0.05);
-    // log::info!("mn_det_threshold: {:?}", 0.05);
-
-    esp_sr::esp_mn_commands_update_from_sdkconfig(multinet, multinet_data);
-    let mu_checksize = ((*multinet).get_samp_chunksize.unwrap())(multinet_data);
-    log::info!("mu_checksize: {}", mu_checksize);
-    if mu_checksize != audio_chunksize {
-        log::error!(
-            "mu_checksize: {}, audio_chunksize: {}",
-            mu_checksize,
-            audio_chunksize
-        );
-    }
-
-    log::info!("active_speech_commands");
-    ((*multinet).print_active_speech_commands.unwrap())(multinet_data);
-
-    (afe_handle, afe_data, multinet, multinet_data)
+    (afe_handle, afe_data, models)
 }
 
 struct AFE {
     handle: *mut esp_sr::esp_afe_sr_iface_t,
     data: *mut esp_sr::esp_afe_sr_data_t,
-
-    wakeup_flag: *mut bool,
-    multinet: *mut esp_sr::esp_mn_iface_t,
-    multinet_data: *mut esp_sr::model_iface_data_t,
+    models: *mut esp_sr::srmodel_list_t,
     #[allow(unused)]
     feed_chunksize: usize,
 }
@@ -150,23 +102,12 @@ struct AFEResult {
 impl AFE {
     fn new() -> Self {
         unsafe {
-            let (handle, data, multinet, multinet_data) = afe_init();
+            let (handle, data, models) = afe_init();
             let feed_chunksize = (handle.as_mut().unwrap().get_feed_chunksize.unwrap())(data);
-            let mn_checksize = ((*multinet).get_samp_chunksize.unwrap())(multinet_data);
-            if feed_chunksize != mn_checksize {
-                log::error!(
-                    "feed_chunksize: {}, mn_checksize: {}",
-                    feed_chunksize,
-                    mn_checksize
-                );
-            }
-            let wakeup_flag = Box::into_raw(Box::new(false));
             AFE {
                 handle,
                 data,
-                wakeup_flag,
-                multinet,
-                multinet_data,
+                models,
                 feed_chunksize: feed_chunksize as usize,
             }
         }
@@ -190,11 +131,14 @@ impl AFE {
         }
     }
 
-    fn fetch(&self) -> Result<AFEResult, i32> {
+    fn fetch(
+        &self,
+        multinet: *mut esp_sr::esp_mn_iface_t,
+        multinet_data: *mut esp_sr::model_iface_data_t,
+        wakeup_flag: &mut bool,
+    ) -> Result<AFEResult, i32> {
         let afe_handle = self.handle;
         let afe_data = self.data;
-        let multinet = self.multinet;
-        let multinet_data = self.multinet_data;
 
         unsafe {
             let result = (afe_handle.as_ref().unwrap().fetch.unwrap())(afe_data)
@@ -215,16 +159,16 @@ impl AFE {
                 && result.wakeup_state == esp_sr::wakenet_state_t_WAKENET_DETECTED
             {
                 log::info!("single channel detected");
-                *self.wakeup_flag = true;
+                *wakeup_flag = true;
                 ((*afe_handle).disable_wakenet.unwrap())(afe_data);
             } else if result.raw_data_channels > 1
                 && result.wakeup_state == esp_sr::wakenet_state_t_WAKENET_CHANNEL_VERIFIED
             {
                 log::info!("multi channel detected");
-                *self.wakeup_flag = true;
+                *wakeup_flag = true;
                 ((*afe_handle).disable_wakenet.unwrap())(afe_data);
             }
-            if *self.wakeup_flag {
+            if *wakeup_flag {
                 log::info!("wakeup_flag: true");
 
                 let mut mn_cmd_ids: Vec<i32> = Vec::new();
@@ -249,7 +193,7 @@ impl AFE {
                     let result = ((*multinet).get_results.unwrap())(multinet_data);
                     log::info!("mn timeout result: {:?}", result);
                     ((*afe_handle).enable_wakenet.unwrap())(afe_data);
-                    *self.wakeup_flag = false;
+                    *wakeup_flag = false;
                 }
                 return Ok(AFEResult {
                     data: vec![],
@@ -566,8 +510,47 @@ async fn i2s_player(
 
 fn afe_worker(afe_handle: Arc<AFE>, tx: MicTx) -> anyhow::Result<()> {
     let mut speech = false;
+    let mut wakeup_flag = false;
+
+    let multinet: *mut esp_sr::esp_mn_iface_t;
+    let multinet_data: *mut esp_sr::model_iface_data_t;
+
+    unsafe {
+        let mn_name = esp_sr::esp_srmodel_filter(
+            afe_handle.models,
+            esp_sr::ESP_MN_PREFIX.as_ptr() as *const _,
+            esp_sr::ESP_MN_CHINESE.as_ptr() as *const _,
+        );
+        log::info!(
+            "mn_name: {:?}",
+            CStr::from_ptr(mn_name as *const c_char).to_str().unwrap()
+        );
+        multinet = esp_sr::esp_mn_handle_from_name(mn_name);
+        log::info!("multinet: {:?}", multinet);
+
+        // 设置唤醒后等待时间为 6000 ms
+        multinet_data = ((*multinet).create.unwrap())(mn_name, 6000 as c_int);
+        log::info!("model_data: {:?}", multinet_data);
+
+        let mn_language = (*multinet).get_language.unwrap()(multinet_data);
+        log::info!(
+            "mn_language: {:?}",
+            CStr::from_ptr(mn_language as *const c_char)
+                .to_str()
+                .unwrap()
+        );
+
+        // // 调节阈值
+        // (*multinet).set_det_threshold.unwrap()(multinet_data, 0.05);
+        // log::info!("mn_det_threshold: {:?}", 0.05);
+
+        esp_sr::esp_mn_commands_update_from_sdkconfig(multinet, multinet_data);
+
+        log::info!("active_speech_commands");
+        ((*multinet).print_active_speech_commands.unwrap())(multinet_data);
+    }
     loop {
-        let result = afe_handle.fetch();
+        let result = afe_handle.fetch(multinet, multinet_data, &mut wakeup_flag);
         if let Err(_e) = &result {
             continue;
         }
