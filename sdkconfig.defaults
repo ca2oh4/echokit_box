@@ -45,11 +45,6 @@ CONFIG_SR_NSN_NSNET2=y
 CONFIG_SR_VADN_VADNET1_MEDIUM=y
 
 #
-# Load Multiple Wake Words (WakeNet9s)
-#
-CONFIG_SR_WN_WN9S_HILEXIN=y
-
-#
 # Load Multiple Wake Words (WakeNet9)
 #
 CONFIG_SR_WN_WN9_HIESP=y

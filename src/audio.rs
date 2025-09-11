@@ -44,32 +44,32 @@ unsafe fn afe_init() -> (
     afe_config.pcm_config.mic_num = 1;
     afe_config.pcm_config.ref_num = 0;
     afe_config.pcm_config.sample_rate = SAMPLE_RATE as i32;
-    afe_config.afe_ringbuf_size = 64;
-    afe_config.vad_min_noise_ms = 500;
-    afe_config.vad_mode = esp_sr::vad_mode_t_VAD_MODE_1;
-    afe_config.agc_init = true;
-    afe_config.memory_alloc_mode = esp_sr::afe_memory_alloc_mode_t_AFE_MEMORY_ALLOC_MORE_PSRAM;
-    afe_config.debug_init = true;
+    // afe_config.afe_ringbuf_size = 50;
+    // afe_config.vad_min_noise_ms = 1000;
+    // afe_config.vad_mode = esp_sr::vad_mode_t_VAD_MODE_1;
+    // afe_config.agc_init = true;
+    // afe_config.memory_alloc_mode = esp_sr::afe_memory_alloc_mode_t_AFE_MEMORY_ALLOC_MORE_PSRAM;
+    // afe_config.debug_init = true;
 
-    afe_config.wakenet_model_name = esp_sr::esp_srmodel_filter(
-        models,
-        esp_sr::ESP_WN_PREFIX.as_ptr() as *const _,
-        std::ptr::null_mut() as *const _,
-    );
-    log::info!(
-        "wakenet_model_name: {:?}",
-        CStr::from_ptr(afe_config.wakenet_model_name as *const c_char)
-            .to_str()
-            .unwrap()
-    );
-    afe_config.wakenet_init = true;
-    afe_config.wakenet_mode = esp_sr::det_mode_t_DET_MODE_90;
+    // afe_config.wakenet_model_name = esp_sr::esp_srmodel_filter(
+    //     models,
+    //     esp_sr::ESP_WN_PREFIX.as_ptr() as *const _,
+    //     std::ptr::null_mut() as *const _,
+    // );
+    // log::info!(
+    //     "wakenet_model_name: {:?}",
+    //     CStr::from_ptr(afe_config.wakenet_model_name as *const c_char)
+    //         .to_str()
+    //         .unwrap()
+    // );
+    // afe_config.wakenet_init = true;
+    // afe_config.wakenet_mode = esp_sr::det_mode_t_DET_MODE_90;
 
     log::info!("{afe_config:?}");
     esp_sr::afe_config_print(afe_config);
 
-    let afe_ringbuf_size = afe_config.afe_ringbuf_size;
-    log::info!("afe ringbuf size: {}", afe_ringbuf_size);
+    // let afe_ringbuf_size = afe_config.afe_ringbuf_size;
+    // log::info!("afe ringbuf size: {}", afe_ringbuf_size);
 
     let afe_handle = esp_sr::esp_afe_handle_from_config(afe_config);
     let afe_handle = afe_handle.as_mut().unwrap();
@@ -106,9 +106,9 @@ unsafe fn afe_init() -> (
             .unwrap()
     );
 
-    // 调节阈值
-    (*multinet).set_det_threshold.unwrap()(multinet_data, 0.05);
-    log::info!("mn_det_threshold: {:?}", 0.05);
+    // // 调节阈值
+    // (*multinet).set_det_threshold.unwrap()(multinet_data, 0.05);
+    // log::info!("mn_det_threshold: {:?}", 0.05);
 
     esp_sr::esp_mn_commands_update_from_sdkconfig(multinet, multinet_data);
     let mu_checksize = ((*multinet).get_samp_chunksize.unwrap())(multinet_data);
