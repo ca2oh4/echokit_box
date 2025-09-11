@@ -194,6 +194,9 @@ impl AFE {
                         );
                         mn_cmd_ids.push((*result).command_id[i as usize]);
                     }
+                    // 识别出来了，关闭唤醒词检测，等待下一次唤醒词检测
+                    ((*afe_handle).enable_wakenet.unwrap())(afe_data);
+                    *wakeup_flag = false;
                 } else if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_TIMEOUT {
                     log::info!("mn_state timeout");
                     let result = ((*multinet).get_results.unwrap())(multinet_data);
