@@ -60,7 +60,7 @@ unsafe fn afe_init() -> (
     //         .unwrap()
     // );
     afe_config.wakenet_init = true;
-    // afe_config.wakenet_mode = esp_sr::det_mode_t_DET_MODE_90;
+    afe_config.wakenet_mode = esp_sr::det_mode_t_DET_MODE_90;
 
     log::info!("{afe_config:?}");
     esp_sr::afe_config_print(afe_config);
@@ -76,7 +76,8 @@ unsafe fn afe_init() -> (
     let audio_chunksize = (afe_handle.get_feed_chunksize.unwrap())(afe_data);
     log::info!("audio chunksize: {}", audio_chunksize);
 
-    // afe_handle.set_wakenet_threshold.unwrap()(afe_data, 1, 0.6);
+    afe_handle.set_wakenet_threshold.unwrap()(afe_data, 1, 0.4);
+    afe_handle.set_wakenet_threshold.unwrap()(afe_data, 2, 0.4);
     // log::info!("wakenet threshold: {:?}", 0.6);
 
     (afe_handle, afe_data, models)
