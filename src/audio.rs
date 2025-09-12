@@ -46,27 +46,12 @@ unsafe fn afe_init() -> (
     afe_config.vad_mode = esp_sr::vad_mode_t_VAD_MODE_1;
     afe_config.agc_init = true;
     afe_config.memory_alloc_mode = esp_sr::afe_memory_alloc_mode_t_AFE_MEMORY_ALLOC_MORE_PSRAM;
-    // afe_config.debug_init = true;
 
-    // afe_config.wakenet_model_name = esp_sr::esp_srmodel_filter(
-    //     models,
-    //     esp_sr::ESP_WN_PREFIX.as_ptr() as *const _,
-    //     std::ptr::null_mut() as *const _,
-    // );
-    // log::info!(
-    //     "wakenet_model_name: {:?}",
-    //     CStr::from_ptr(afe_config.wakenet_model_name as *const c_char)
-    //         .to_str()
-    //         .unwrap()
-    // );
     afe_config.wakenet_init = true;
     afe_config.wakenet_mode = esp_sr::det_mode_t_DET_MODE_90;
 
     log::info!("{afe_config:?}");
     esp_sr::afe_config_print(afe_config);
-
-    // let afe_ringbuf_size = afe_config.afe_ringbuf_size;
-    // log::info!("afe ringbuf size: {}", afe_ringbuf_size);
 
     let afe_handle = esp_sr::esp_afe_handle_from_config(afe_config);
     let afe_handle = afe_handle.as_mut().unwrap();
@@ -78,7 +63,6 @@ unsafe fn afe_init() -> (
 
     afe_handle.set_wakenet_threshold.unwrap()(afe_data, 1, 0.4);
     afe_handle.set_wakenet_threshold.unwrap()(afe_data, 2, 0.4);
-    // log::info!("wakenet threshold: {:?}", 0.6);
 
     (afe_handle, afe_data, models)
 }
