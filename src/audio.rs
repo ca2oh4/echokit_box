@@ -63,10 +63,6 @@ unsafe fn afe_init() -> (
     log::info!("audio chunksize: {}", audio_chunksize);
 
     afe_handle.set_wakenet_threshold.unwrap()(afe_data, 1, 0.4);
-    afe_handle.set_wakenet_threshold.unwrap()(afe_data, 2, 0.4);
-
-    let multinet: *mut esp_sr::esp_mn_iface_t;
-    let multinet_data: *mut esp_sr::model_iface_data_t;
 
     let mn_name = esp_sr::esp_srmodel_filter(
         models,
@@ -96,6 +92,7 @@ unsafe fn afe_init() -> (
     (*multinet).set_det_threshold.unwrap()(multinet_data, 0.05);
     log::info!("mn_det_threshold: {:?}", 0.05);
 
+    // 设置命令词;
     esp_sr::esp_mn_commands_update_from_sdkconfig(multinet, multinet_data);
 
     log::info!("active_speech_commands");
@@ -120,7 +117,7 @@ unsafe impl Sync for AFE {}
 struct AFEResult {
     data: Vec<u8>,
     speech: bool,
-    mn_cmd_ids: Vec<i32>,
+    mn_cmd_id: Option<i32>,
 }
 
 impl AFE {
@@ -206,7 +203,7 @@ impl AFE {
             if *wakeup {
                 log::info!("wakeup: true");
 
-                let mut mn_cmd_ids: Vec<i32> = Vec::new();
+                let mut mn_cmd_id: Option<i32> = None;
                 let mn_state = ((*multinet).detect.unwrap())(multinet_data, result.data);
                 log::info!("mn_state: {:?}", mn_state);
                 if mn_state == esp_sr::esp_mn_state_t_ESP_MN_STATE_DETECTING {
@@ -217,11 +214,16 @@ impl AFE {
                     log::info!("mn result: {:?}", result);
                     for i in 0..(*result).num {
                         log::info!(
-                            "TOP {}, command_id: {}",
+                            "TOP {}, command_id: {}, phrase_id: {}, phrase_id: {}",
                             i,
-                            (*result).command_id[i as usize]
+                            (*result).command_id[i as usize],
+                            (*result).phrase_id[i as usize],
+                            (*result).prob[i as usize],
                         );
-                        mn_cmd_ids.push((*result).command_id[i as usize]);
+                        // 只取第一个识别结果
+                        if i == 0 {
+                            mn_cmd_id = Some((*result).command_id[i as usize]);
+                        }
                     }
                     // 识别出来了，重新启动唤醒词检测，等待下一次唤醒词检测
                     ((*afe_handle).enable_wakenet.unwrap())(afe_data);
@@ -236,7 +238,7 @@ impl AFE {
                 return Ok(AFEResult {
                     data: vec![],
                     speech: false,
-                    mn_cmd_ids,
+                    mn_cmd_id,
                 });
             }
 
@@ -258,7 +260,7 @@ impl AFE {
             Ok(AFEResult {
                 data,
                 speech,
-                mn_cmd_ids: vec![],
+                mn_cmd_id: None,
             })
         }
     }
@@ -557,21 +559,19 @@ fn afe_worker(afe_handle: Arc<AFE>, tx: MicTx) -> anyhow::Result<()> {
         }
         let result = result.unwrap();
 
-        if !result.mn_cmd_ids.is_empty() {
-            for cmd_id in result.mn_cmd_ids {
-                log::info!("Sending command id {}", cmd_id);
-                match cmd_id {
-                    0 => {
-                        tx.blocking_send(crate::app::Event::Event(crate::app::Event::MN_CMD_0))
-                            .map_err(|_| anyhow::anyhow!("Failed to send MN_CMD_0"))?;
-                    }
-                    1 => {
-                        tx.blocking_send(crate::app::Event::Event(crate::app::Event::MN_CMD_1))
-                            .map_err(|_| anyhow::anyhow!("Failed to send MN_CMD_1"))?;
-                    }
-                    _ => {
-                        log::error!("Invalid cmd_id: {}", cmd_id);
-                    }
+        if let Some(cmd_id) = result.mn_cmd_id {
+            log::info!("Sending command id {}", cmd_id);
+            match cmd_id {
+                0 => {
+                    tx.blocking_send(crate::app::Event::Event(crate::app::Event::MN_CMD_0))
+                        .map_err(|_| anyhow::anyhow!("Failed to send MN_CMD_0"))?;
+                }
+                1 => {
+                    tx.blocking_send(crate::app::Event::Event(crate::app::Event::MN_CMD_1))
+                        .map_err(|_| anyhow::anyhow!("Failed to send MN_CMD_1"))?;
+                }
+                _ => {
+                    log::error!("Invalid cmd_id: {}", cmd_id);
                 }
             }
             continue;
